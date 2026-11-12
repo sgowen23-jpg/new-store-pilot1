@@ -8,8 +8,8 @@ const pct = (a, b) => (b ? Math.round((a / b) * 100) : 0) + '%'
 
 /* ---------- projects on the home wheel (swipe left / right) ---------- */
 const PROJECTS = [
-  { key: 'gsv', title: <>Team V GSV<br />Non Universe</> },
-  { key: 'blitz', title: <>NSW Sun Tower<br />Blitz</> },
+  { key: 'gsv', title: <>Team V GSV<br />Non Universe</>, tab: 'GSV Non Universe' },
+  { key: 'blitz', title: <>NSW Sun Tower<br />Blitz</>, tab: 'NSW Blitz' },
 ]
 const BLITZ_DAYS = ['TUE', 'WED', 'THU']
 const DAY_NAMES = { TUE: 'Tuesday', WED: 'Wednesday', THU: 'Thursday' }
@@ -182,7 +182,10 @@ const LAST_PROJECT_KEY = 'nsp_last_project'
 
 function ProjectWheel({ children, onChange }) {
   const ref = useRef(null)
+  // A link ending in #blitz (or #gsv) opens straight on that project; otherwise reopen the last one used
   const [idx, setIdx] = useState(() => {
+    const fromHash = PROJECTS.findIndex(p => '#' + p.key === window.location.hash)
+    if (fromHash >= 0) return fromHash
     try { return Math.max(0, PROJECTS.findIndex(p => p.key === localStorage.getItem(LAST_PROJECT_KEY))) } catch { return 0 }
   })
   const panels = Array.isArray(children) ? children : [children]
@@ -217,6 +220,7 @@ function ProjectWheel({ children, onChange }) {
       setIdx(i)
       onChange?.(PROJECTS[i].key)
       try { localStorage.setItem(LAST_PROJECT_KEY, PROJECTS[i].key) } catch { /* ignore */ }
+      try { history.replaceState(null, '', '#' + PROJECTS[i].key) } catch { /* ignore */ }
     }
   }
 
@@ -258,10 +262,10 @@ function ProjectWheel({ children, onChange }) {
         onPointerDown={onPointerDown} onPointerMove={onPointerMove} onPointerUp={endDrag} onPointerLeave={endDrag}>
         {panels.map((p, i) => <div key={PROJECTS[i].key} data-project className="project-panel">{p}</div>)}
       </div>
-      <div className="project-dots" role="tablist" aria-label="Projects">
+      <div className="project-tabs" role="tablist" aria-label="Projects">
         {PROJECTS.map((p, i) => (
-          <button key={p.key} role="tab" aria-selected={i === idx} aria-label={'Project ' + (i + 1)}
-            className={i === idx ? 'on' : ''} onClick={() => go(i)} />
+          <button key={p.key} role="tab" aria-selected={i === idx}
+            className={i === idx ? 'on' : ''} onClick={() => go(i)}>{p.tab}</button>
         ))}
       </div>
     </>
