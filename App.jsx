@@ -44,6 +44,79 @@ const Download = () => <Icon size={17} d={<><path d="M4 17v2a2 2 0 0 0 2 2h12a2 
 const Check = () => <Icon size={22} d={<path d="M5 12l5 5L20 7" />} />
 const Sheet = () => <Icon size={20} d={<><path d="M14 3v4a1 1 0 0 0 1 1h4" /><path d="M17 21H7a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h7l5 5v11a2 2 0 0 1-2 2z" /><path d="M8 11h8v7H8z" /><path d="M8 15h8" /><path d="M11 11v7" /></>} />
 const Doc = () => <Icon size={20} d={<><path d="M14 3v4a1 1 0 0 0 1 1h4" /><path d="M17 21H7a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h7l5 5v11a2 2 0 0 1-2 2z" /><path d="M9 9h1" /><path d="M9 13h6" /><path d="M9 17h6" /></>} />
+const Route = () => <Icon size={18} d={<><circle cx="6" cy="19" r="2" /><circle cx="18" cy="5" r="2" /><path d="M12 19h4.5a3.5 3.5 0 0 0 0-7h-8a3.5 3.5 0 0 1 0-7H12" /></>} />
+
+/* ---------- full blitz itinerary (all three days) ---------- */
+const hrs = m => `${Math.floor(m / 60)}h ${String(Math.round(m % 60)).padStart(2, '0')}m`
+// Google Maps allows about 10 points per link, so long days get two links
+const dirLinks = stops => {
+  const p = stops.map(s => `${s.lat},${s.lng}`)
+  const out = []
+  for (let i = 0; i < p.length - 1; i += 9) out.push(p.slice(i, i + 10))
+  return out.map(c => 'https://www.google.com/maps/dir/' + c.join('/'))
+}
+
+function Itinerary({ stops, onBack }) {
+  const stores = stops.filter(isStore)
+  const totalKm = stops.reduce((a, s) => a + Number(s.km || 0), 0)
+  const totalMin = stops.reduce((a, s) => a + Number(s.drive_min || 0), 0)
+  return (
+    <div className="page">
+      <div className="hdr">
+        <button className="icon-btn" onClick={onBack} aria-label="Back"><ArrowLeft /></button>
+        <div className="ttl itin-ttl">Full itinerary</div>
+        <span />
+      </div>
+      <div className="itin-sum">
+        {stores.filter(s => s.kind === 'target').length} sun targets · {stores.length} stores · {Math.round(totalKm)} km · {hrs(totalMin)} driving
+      </div>
+      <div className="itin-scroll">
+        {BLITZ_DAYS.map(d => {
+          const day = stops.filter(s => s.day === d)
+          if (!day.length) return null
+          const ds = day.filter(isStore)
+          const km = day.reduce((a, s) => a + Number(s.km || 0), 0)
+          const min = day.reduce((a, s) => a + Number(s.drive_min || 0), 0)
+          const links = dirLinks(day)
+          return (
+            <section key={d} className="itin-day">
+              <div className="itin-dayhead">
+                <b>{DAY_NAMES[d]}</b>
+                <span>{day[0].day_area}</span>
+                <small>{ds.length} stores · {Math.round(km)} km · {hrs(min)} driving</small>
+              </div>
+              <div className="itin-links">
+                {links.map((u, i) => (
+                  <a key={u} href={u} target="_blank" rel="noopener noreferrer">
+                    Directions{links.length > 1 ? ` ${i + 1} of ${links.length}` : ''} ↗
+                  </a>
+                ))}
+              </div>
+              <ol className="itin-list">
+                {day.map(s => (
+                  <li key={s.id} className={'itin-row ' + s.kind + (s.visited ? ' done' : '')}>
+                    {s.seq > 0 && <div className="itin-leg">↓ {Number(s.km).toFixed(1)} km · {s.drive_min} min</div>}
+                    <div className="itin-stop">
+                      <em>{s.arrive}</em>
+                      <i className={'stop-dot' + (s.kind === 'target' ? ' t' : '') + (isStore(s) ? '' : ' h')} />
+                      <span className="itin-name">
+                        {s.kind === 'start' ? 'Leave ' : s.kind === 'hotel' ? (s.store_name === 'Sydney Airport' ? 'Fly home: ' : 'Hotel: ') : ''}
+                        {s.store_name}
+                        <small>{s.address}{isStore(s) && s.gaps != null ? ` · ${s.gaps} gaps` : ''}</small>
+                      </span>
+                      {s.visited && <span className="itin-tick">{s.sold_in_tower === 'Yes' ? 'Tower ✓' : '✓'}</span>}
+                    </div>
+                  </li>
+                ))}
+              </ol>
+            </section>
+          )
+        })}
+        <p className="itin-foot">km are road distances on the fastest route (toll roads). Drive times include 25% for traffic. Times assume leaving at 7:30am, 25 min per call and a 30 min lunch.</p>
+      </div>
+    </div>
+  )
+}
 
 /* ---------- wheel styling (applied directly to DOM for smooth scrolling) ---------- */
 function styleWheel(el, itemH, opts) {
@@ -456,6 +529,9 @@ export default function App() {
           </>
         </ProjectWheel>
         {project === 'gsv' && <button className="export-btn" onClick={() => setMenu(true)} aria-label="Export"><Download /></button>}
+        {project === 'blitz' && (
+          <button className="itin-btn" onClick={() => setPage('itin')} aria-label="Full itinerary"><Route />Itinerary</button>
+        )}
         {menu && (
           <div className="scrim" onClick={e => e.target === e.currentTarget && setMenu(false)}>
             <div className="sheet">
@@ -486,6 +562,8 @@ export default function App() {
           <small>{stateVisited} of {inState.length} visited</small>
         </div>
       </div>
+
+      {page === 'itin' && <Itinerary stops={blitz} onBack={() => setPage('home')} />}
 
       {/* BLITZ DAY */}
       <div className={'page' + (page === 'day' ? '' : ' hidden')}>

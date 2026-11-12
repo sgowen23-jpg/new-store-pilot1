@@ -204,3 +204,37 @@ button { font-family: inherit; cursor: pointer; }
 .stop-addr { color: #FFFFFF; text-decoration: none; font-weight: 600; }
 .stop-addr:active, .stop-addr:hover { color: #FF8A65; }
 .stop-note { color: #FFB4A0; }
+
+/* itinerary button (top right of the blitz home) and screen */
+.itin-btn {
+  position: absolute; right: 14px; top: calc(14px + env(safe-area-inset-top)); z-index: 2;
+  display: flex; align-items: center; gap: 6px; padding: 7px 12px; border-radius: 999px;
+  border: 1.5px solid #FF8A65; background: none; color: #FF8A65; font-size: 13px; font-weight: 700;
+}
+.itin-btn:active { background: #FF8A65; color: #0E4A5C; }
+.itin-ttl { font-size: 20px; }
+.itin-sum { font-size: 13px; color: #9CC4CF; padding: 0 16px 10px; }
+.itin-scroll { flex: 1; overflow-y: auto; padding: 0 16px 24px; text-align: left; -webkit-overflow-scrolling: touch; }
+.itin-day { padding: 14px 0 6px; border-top: 1px solid rgba(255, 255, 255, 0.12); }
+.itin-dayhead { display: flex; flex-direction: column; gap: 1px; }
+.itin-dayhead b { font-size: 20px; color: #FF8A65; }
+.itin-dayhead span { font-size: 14px; font-weight: 600; }
+.itin-dayhead small { font-size: 12px; color: #9CC4CF; }
+.itin-links { display: flex; flex-wrap: wrap; gap: 8px; margin: 10px 0 6px; }
+.itin-links a {
+  font-size: 13px; font-weight: 700; color: #0E4A5C; background: #FF8A65;
+  padding: 6px 12px; border-radius: 999px; text-decoration: none;
+}
+.itin-list { list-style: none; margin: 0; padding: 0; }
+.itin-leg { font-size: 11.5px; color: #9CC4CF; padding: 3px 0 3px 70px; }
+.itin-stop { display: flex; align-items: flex-start; gap: 9px; padding: 3px 0; }
+.itin-stop em { font-style: normal; font-size: 12.5px; font-weight: 600; color: #9CC4CF; min-width: 54px; text-align: right; padding-top: 1px; font-variant-numeric: tabular-nums; }
+.itin-stop .stop-dot { margin-top: 5px; }
+.stop-dot.h { border-radius: 2px; border-color: #FFFFFF; background: #FFFFFF; }
+.itin-name { flex: 1; min-width: 0; font-size: 14.5px; font-weight: 600; line-height: 1.3; }
+.itin-name small { display: block; font-size: 12px; font-weight: 400; color: #9CC4CF; }
+.itin-row.start .itin-name, .itin-row.hotel .itin-name { color: #FFFFFF; font-weight: 700; }
+.itin-row.done .itin-name { opacity: 0.55; }
+.itin-tick { flex: none; font-size: 11.5px; font-weight: 700; color: #0E4A5C; background: #3DBE6E; padding: 2px 7px; border-radius: 999px; }
+.itin-foot { font-size: 11.5px; color: #9CC4CF; margin: 14px 0 0; }
+.project-panel .home-title { padding-top: 54px; }
