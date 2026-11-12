@@ -1,10 +1,28 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
-import { DEMO, loadStores, saveVisit } from './data.js'
+import { DEMO, loadStores, saveVisit, loadBlitz, saveBlitzVisit } from './data.js'
 import { STATES, exportExcel, exportSummary } from './exporters.js'
 
 const CORAL = '#FF8A65'
 const WHITE = '#FFFFFF'
 const pct = (a, b) => (b ? Math.round((a / b) * 100) : 0) + '%'
+
+/* ---------- projects on the home wheel (swipe left / right) ---------- */
+const PROJECTS = [
+  { key: 'gsv', title: <>Team V GSV<br />Non Universe</> },
+  { key: 'blitz', title: <>NSW Sun Tower<br />Blitz</> },
+]
+const BLITZ_DAYS = ['TUE', 'WED', 'THU']
+const DAY_NAMES = { TUE: 'Tuesday', WED: 'Wednesday', THU: 'Thursday' }
+const isStore = s => s.kind === 'target' || s.kind === 'fillin'
+
+const BLITZ_QUESTIONS = [
+  { key: 'call_completed', title: 'Call completed?', kind: 'yn' },
+  { key: 'sold_in_tower', title: 'Sold in tower?', kind: 'yn', targetsOnly: true },
+  { key: 'units', title: 'Units ordered', kind: 'num' },
+  { key: 'visit_notes', title: 'Notes', kind: 'txt' },
+]
+const BLITZ_EMPTY = { call_completed: '', sold_in_tower: '', units: '', visit_notes: '' }
+const mapsUrl = s => 'https://www.google.com/maps/search/?api=1&query=' + encodeURIComponent(`${s.store_name} ${s.address} NSW`)
 
 const QUESTIONS = [
   { key: 'call_completed', title: 'Call completed?', kind: 'yn' },
@@ -41,19 +59,19 @@ function styleWheel(el, itemH, opts) {
   })
 }
 
-/* ---------- state wheel (loops, 3 visible) ---------- */
+/* ---------- big looping wheel (3 visible): states, or blitz days ---------- */
 const STATE_H = 110
 const LOOPS = 7
-const MID = Math.floor(LOOPS / 2) * STATES.length
 
-function StateWheel({ onPick }) {
+function StateWheel({ onPick, items = STATES }) {
   const ref = useRef(null)
   const timer = useRef(null)
+  const mid = Math.floor(LOOPS / 2) * items.length
   const opts = { limit: 1.6, rot: 28, scale: 0.25, fade: 0.28, highlight: true }
   const restyle = () => styleWheel(ref.current, STATE_H, opts)
 
   useLayoutEffect(() => {
-    ref.current.scrollTop = MID * STATE_H - STATE_H
+    ref.current.scrollTop = mid * STATE_H - STATE_H
     restyle()
   }, [])
 
@@ -64,9 +82,9 @@ function StateWheel({ onPick }) {
       const el = ref.current
       if (!el) return
       const i = Math.round((el.scrollTop + STATE_H) / STATE_H)
-      const k = ((i % STATES.length) + STATES.length) % STATES.length
-      if (Math.abs(i - MID) > STATES.length) {
-        el.scrollTop = (MID + k) * STATE_H - STATE_H
+      const k = ((i % items.length) + items.length) % items.length
+      if (Math.abs(i - mid) > items.length) {
+        el.scrollTop = (mid + k) * STATE_H - STATE_H
         restyle()
       }
     }, 150)
@@ -77,7 +95,7 @@ function StateWheel({ onPick }) {
       <div className="state-band" />
       <div className="wheel state-wheel" ref={ref} onScroll={onScroll}>
         {Array.from({ length: LOOPS }).flatMap((_, r) =>
-          STATES.map(s => (
+          items.map(s => (
             <div key={r + s} data-wheel-item className="state-item" onClick={() => onPick(s)}>{s}</div>
           ))
         )}
@@ -86,10 +104,101 @@ function StateWheel({ onPick }) {
   )
 }
 
+/* ---------- horizontal project wheel (swipe left / right) ---------- */
+const LAST_PROJECT_KEY = 'nsp_last_project'
+
+function ProjectWheel({ children, onChange }) {
+  const ref = useRef(null)
+  const [idx, setIdx] = useState(() => {
+    try { return Math.max(0, PROJECTS.findIndex(p => p.key === localStorage.getItem(LAST_PROJECT_KEY))) } catch { return 0 }
+  })
+  const panels = Array.isArray(children) ? children : [children]
+
+  const restyle = () => {
+    const el = ref.current
+    if (!el) return
+    const w = el.clientWidth || 1
+    el.querySelectorAll('[data-project]').forEach((p, i) => {
+      const d = (i * w - el.scrollLeft) / w
+      const a = Math.min(Math.abs(d), 1)
+      p.style.transform = `rotateY(${d * 32}deg) scale(${1 - a * 0.12})`
+      p.style.opacity = String(1 - a * 0.55)
+    })
+  }
+
+  useLayoutEffect(() => {
+    const el = ref.current
+    el.scrollLeft = idx * el.clientWidth
+    restyle()
+    onChange?.(PROJECTS[idx].key)
+    const onResize = () => { el.scrollLeft = idx * el.clientWidth; restyle() }
+    window.addEventListener('resize', onResize)
+    return () => window.removeEventListener('resize', onResize)
+  }, [])
+
+  const onScroll = () => {
+    requestAnimationFrame(restyle)
+    const el = ref.current
+    const i = Math.round(el.scrollLeft / (el.clientWidth || 1))
+    if (i !== idx && PROJECTS[i]) {
+      setIdx(i)
+      onChange?.(PROJECTS[i].key)
+      try { localStorage.setItem(LAST_PROJECT_KEY, PROJECTS[i].key) } catch { /* ignore */ }
+    }
+  }
+
+  const go = (i) => ref.current.scrollTo({ left: i * ref.current.clientWidth, behavior: 'smooth' })
+
+  // Mouse drag to swipe on desktop (touch already swipes natively)
+  const drag = useRef(null)
+  const onPointerDown = (e) => {
+    if (e.pointerType !== 'mouse' || e.button !== 0) return
+    drag.current = { x: e.clientX, left: ref.current.scrollLeft, moved: false }
+  }
+  const onPointerMove = (e) => {
+    const d = drag.current
+    if (!d) return
+    const dx = e.clientX - d.x
+    if (!d.moved && Math.abs(dx) > 6) { d.moved = true; ref.current.style.scrollSnapType = 'none' }
+    if (d.moved) ref.current.scrollLeft = d.left - dx
+  }
+  const endDrag = (e) => {
+    const d = drag.current
+    drag.current = null
+    if (!d || !d.moved) return
+    const el = ref.current
+    el.style.scrollSnapType = ''
+    const w = el.clientWidth || 1
+    const dx = (e?.clientX ?? d.x) - d.x
+    let i = Math.round(d.left / w)
+    if (dx < -w * 0.15) i += 1
+    if (dx > w * 0.15) i -= 1
+    go(Math.max(0, Math.min(PROJECTS.length - 1, i)))
+    const stop = (ev) => { ev.stopPropagation(); ev.preventDefault() }
+    el.addEventListener('click', stop, { capture: true, once: true })
+    setTimeout(() => el.removeEventListener('click', stop, { capture: true }), 0)
+  }
+
+  return (
+    <>
+      <div className="project-wheel" ref={ref} onScroll={onScroll}
+        onPointerDown={onPointerDown} onPointerMove={onPointerMove} onPointerUp={endDrag} onPointerLeave={endDrag}>
+        {panels.map((p, i) => <div key={PROJECTS[i].key} data-project className="project-panel">{p}</div>)}
+      </div>
+      <div className="project-dots" role="tablist" aria-label="Projects">
+        {PROJECTS.map((p, i) => (
+          <button key={p.key} role="tab" aria-selected={i === idx} aria-label={'Project ' + (i + 1)}
+            className={i === idx ? 'on' : ''} onClick={() => go(i)} />
+        ))}
+      </div>
+    </>
+  )
+}
+
 /* ---------- store wheel (7 visible) ---------- */
 const STORE_H = 50
 
-function StoreWheel({ stores, onPick, resetKey }) {
+function StoreWheel({ stores, onPick, resetKey, idKey = 'store_id', render = s => <span>{s.store_name}</span>, empty = 'No stores here yet' }) {
   const ref = useRef(null)
   const opts = { limit: 3.5, rot: 9, scale: 0.06, fade: 0.16, highlight: false }
   const restyle = () => styleWheel(ref.current, STORE_H, opts)
@@ -99,13 +208,13 @@ function StoreWheel({ stores, onPick, resetKey }) {
     restyle()
   }, [resetKey, stores.length])
 
-  if (!stores.length) return <div className="wheel store-wheel empty">No stores here yet</div>
+  if (!stores.length) return <div className="wheel store-wheel empty">{empty}</div>
 
   return (
     <div className="wheel store-wheel" ref={ref} onScroll={() => requestAnimationFrame(restyle)}>
       {stores.map(s => (
-        <div key={s.store_id} data-wheel-item className="store-item" onClick={() => onPick(s)}>
-          <span>{s.store_name}</span>
+        <div key={s[idKey]} data-wheel-item className="store-item" onClick={() => onPick(s)}>
+          {render(s)}
         </div>
       ))}
     </div>
@@ -113,15 +222,17 @@ function StoreWheel({ stores, onPick, resetKey }) {
 }
 
 /* ---------- question screen ---------- */
-function Questions({ store, onBack, onHome, onSaved }) {
+function Questions({ store, onBack, onHome, onSaved, questions = QUESTIONS, initial, save, info, id }) {
+  const QUESTIONS = questions
+  const storeId = id ?? store.store_id
   const [qi, setQi] = useState(0)
-  const [ans, setAns] = useState(() => store.visited ? {
+  const [ans, setAns] = useState(() => initial ?? (store.visited ? {
     call_completed: store.call_completed || '',
     sold_in_tower: store.sold_in_tower || '',
     volume: store.volume ?? '',
     vita_gains: store.vita_gains ?? '',
     notes: store.notes || '',
-  } : EMPTY)
+  } : EMPTY))
   const [err, setErr] = useState('')
   const [state, setState] = useState('idle') // idle | saving | done
   const inputRef = useRef(null)
@@ -147,9 +258,9 @@ function Questions({ store, onBack, onHome, onSaved }) {
 
     setState('saving')
     try {
-      const row = await saveVisit(store.store_id, ans)
+      const row = await (save ?? saveVisit)(storeId, ans)
       setState('done')
-      setTimeout(() => onSaved(store.store_id, row), 700)
+      setTimeout(() => onSaved(storeId, row), 700)
     } catch (e) {
       console.error(e)
       setState('idle')
@@ -177,6 +288,7 @@ function Questions({ store, onBack, onHome, onSaved }) {
         <div className="ttl store-ttl">{store.store_name}</div>
         <button className="icon-btn" onClick={() => state === 'idle' && onHome()} aria-label="Home"><Home /></button>
       </div>
+      {info}
       <div className="dots">
         {QUESTIONS.map((_, k) => <span key={k} className={k <= qi ? 'on' : ''} />)}
       </div>
@@ -210,7 +322,7 @@ function Questions({ store, onBack, onHome, onSaved }) {
             ref={inputRef}
             className="inp txt"
             placeholder="Ranged 4 SKUs, follow up order next week"
-            value={ans.notes}
+            value={ans[q.key]}
             onChange={e => set(e.target.value)}
           />
         )}
@@ -238,6 +350,11 @@ export default function App() {
   const [curStore, setCurStore] = useState(null)
   const [menu, setMenu] = useState(false)
   const [toast, setToast] = useState('')
+  const [project, setProject] = useState('gsv')
+  const [blitz, setBlitz] = useState([])
+  const [blitzErr, setBlitzErr] = useState('')
+  const [curDay, setCurDay] = useState('TUE')
+  const [curStop, setCurStop] = useState(null)
 
   const refresh = useCallback(async () => {
     try {
@@ -249,6 +366,13 @@ export default function App() {
       setLoadErr("Couldn't load stores. Check signal.")
     } finally {
       setLoading(false)
+    }
+    try {
+      setBlitz(await loadBlitz())
+      setBlitzErr('')
+    } catch (e) {
+      console.error(e)
+      setBlitzErr("Couldn't load the blitz. Check signal.")
     }
   }, [])
 
@@ -277,6 +401,25 @@ export default function App() {
     setPage('state')
   }
 
+  /* blitz */
+  const blitzStores = blitz.filter(isStore)
+  const blitzTargets = blitzStores.filter(s => s.kind === 'target')
+  const towersSold = blitzTargets.filter(s => s.sold_in_tower === 'Yes').length
+  const blitzVisited = blitzStores.filter(s => s.visited).length
+  const dayStops = blitz.filter(s => s.day === curDay)
+  const dayStores = dayStops.filter(isStore)
+  const dayTargets = dayStores.filter(s => s.kind === 'target')
+  const dayListed = dayStores.filter(s => (mode === 'done') === !!s.visited)
+  const dayHotel = dayStops.find(s => s.kind === 'hotel')
+
+  const openDay = (d) => { setCurDay(d); setMode('todo'); setPage('day'); refresh() }
+  const openStop = (s) => { setCurStop(s); setPage('stop') }
+  const onBlitzSaved = (id, row) => {
+    setBlitz(list => list.map(s => (s.id === id ? { ...s, ...row } : s)))
+    setMode('todo')
+    setPage('day')
+  }
+
   const doExport = (kind) => {
     setMenu(false)
     if (!stores.length) return showToast('Nothing to export yet')
@@ -294,13 +437,25 @@ export default function App() {
       {/* HOME */}
       <div className={'page' + (page === 'home' ? '' : ' hidden')}>
         {DEMO && <div className="demo">Demo mode</div>}
-        <div className="home-title">Team V GSV<br />Non Universe</div>
-        <StateWheel onPick={openState} />
-        <div className="pct">
-          <b>{loading ? '...' : pct(visited, total)}</b>
-          <small>{loadErr || (loading ? 'Loading stores' : `${visited} of ${total} visited`)}</small>
-        </div>
-        <button className="export-btn" onClick={() => setMenu(true)} aria-label="Export"><Download /></button>
+        <ProjectWheel onChange={setProject}>
+          <>
+            <div className="home-title">{PROJECTS[0].title}</div>
+            <StateWheel onPick={openState} />
+            <div className="pct">
+              <b>{loading ? '...' : pct(visited, total)}</b>
+              <small>{loadErr || (loading ? 'Loading stores' : `${visited} of ${total} visited`)}</small>
+            </div>
+          </>
+          <>
+            <div className="home-title">{PROJECTS[1].title}</div>
+            <StateWheel onPick={openDay} items={BLITZ_DAYS} />
+            <div className="pct">
+              <b>{loading ? '...' : pct(towersSold, blitzTargets.length)}</b>
+              <small>{blitzErr || (loading ? 'Loading the blitz' : `${towersSold} of ${blitzTargets.length} towers sold · ${blitzVisited} of ${blitzStores.length} visited`)}</small>
+            </div>
+          </>
+        </ProjectWheel>
+        {project === 'gsv' && <button className="export-btn" onClick={() => setMenu(true)} aria-label="Export"><Download /></button>}
         {menu && (
           <div className="scrim" onClick={e => e.target === e.currentTarget && setMenu(false)}>
             <div className="sheet">
@@ -331,6 +486,69 @@ export default function App() {
           <small>{stateVisited} of {inState.length} visited</small>
         </div>
       </div>
+
+      {/* BLITZ DAY */}
+      <div className={'page' + (page === 'day' ? '' : ' hidden')}>
+        <div className="hdr">
+          <button className="icon-btn" onClick={goHome} aria-label="Back to days"><ArrowLeft /></button>
+          <div className="ttl state-ttl">{curDay}</div>
+          <button className="icon-btn" onClick={goHome} aria-label="Home"><Home /></button>
+        </div>
+        <div className="day-sub">{DAY_NAMES[curDay]} · {dayStops[0]?.day_area}</div>
+        <div className="seg">
+          <button className={mode === 'todo' ? 'on' : ''} onClick={() => setMode('todo')}>Not visited</button>
+          <button className={mode === 'done' ? 'on' : ''} onClick={() => setMode('done')}>Visited</button>
+        </div>
+        <StoreWheel
+          stores={dayListed}
+          onPick={openStop}
+          idKey="id"
+          resetKey={curDay + mode + page}
+          empty={mode === 'todo' ? 'Every store done for today' : 'No visits yet today'}
+          render={s => (
+            <span className="stop-row">
+              <em className="stop-time">{s.arrive}</em>
+              <i className={'stop-dot' + (s.kind === 'target' ? ' t' : '')} aria-label={s.kind === 'target' ? 'Sun target' : 'Fill-in'} />
+              <span className="stop-name">{s.store_name}</span>
+            </span>
+          )}
+        />
+        {dayHotel && <div className="day-hotel">Tonight: {dayHotel.store_name} · {dayHotel.arrive}</div>}
+        <div className="pct">
+          <b>{pct(dayTargets.filter(s => s.sold_in_tower === 'Yes').length, dayTargets.length)}</b>
+          <small>{dayTargets.filter(s => s.sold_in_tower === 'Yes').length} of {dayTargets.length} towers sold · {dayStores.filter(s => s.visited).length} of {dayStores.length} visited</small>
+        </div>
+      </div>
+
+      {page === 'stop' && curStop && (
+        <Questions
+          key={curStop.id}
+          store={curStop}
+          id={curStop.id}
+          questions={BLITZ_QUESTIONS.filter(q => !q.targetsOnly || curStop.kind === 'target')}
+          initial={curStop.visited ? {
+            call_completed: curStop.call_completed || '',
+            sold_in_tower: curStop.sold_in_tower || '',
+            units: curStop.units ?? '',
+            visit_notes: curStop.visit_notes || '',
+          } : BLITZ_EMPTY}
+          save={saveBlitzVisit}
+          info={(
+            <div className="stop-info">
+              <div className="stop-tags">
+                <span className={'tag' + (curStop.kind === 'target' ? ' t' : '')}>{curStop.kind === 'target' ? 'Sun target' : 'Fill-in'}</span>
+                {curStop.store_rank && <span>Rank {curStop.store_rank}</span>}
+                <span>{curStop.gaps != null ? `${curStop.gaps} gaps · ${curStop.must_have} must-have` : 'No ranging data'}</span>
+              </div>
+              <a className="stop-addr" href={mapsUrl(curStop)} target="_blank" rel="noopener noreferrer">{curStop.address} ↗</a>
+              {curStop.note && <div className="stop-note">{curStop.note}</div>}
+            </div>
+          )}
+          onBack={() => setPage('day')}
+          onHome={goHome}
+          onSaved={onBlitzSaved}
+        />
+      )}
 
       {/* QUESTIONS */}
       {page === 'store' && curStore && (

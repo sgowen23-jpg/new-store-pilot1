@@ -162,3 +162,45 @@ button { font-family: inherit; cursor: pointer; }
 }
 .next:disabled { opacity: 0.8; }
 .next.ok { background: #3DBE6E; border-color: #3DBE6E; color: #FFFFFF; }
+
+/* project wheel (home): swipe left / right between projects */
+.project-wheel {
+  flex: 1; min-height: 0; width: 100%;
+  display: flex; overflow-x: auto; overflow-y: hidden;
+  scroll-snap-type: x mandatory; scrollbar-width: none;
+  perspective: 900px; -webkit-overflow-scrolling: touch; overscroll-behavior-x: contain;
+}
+.project-wheel::-webkit-scrollbar { display: none; }
+.project-panel {
+  flex: 0 0 100%; min-width: 0; scroll-snap-align: center; scroll-snap-stop: always;
+  display: flex; flex-direction: column; transform-origin: center center;
+}
+.project-dots {
+  display: flex; justify-content: center; gap: 10px;
+  padding: 0 0 calc(18px + env(safe-area-inset-bottom));
+}
+.project-dots button {
+  width: 9px; height: 9px; padding: 0; border: none; border-radius: 50%;
+  background: rgba(255, 255, 255, 0.28); transition: background .2s, width .2s;
+}
+.project-dots button.on { background: #FF8A65; width: 22px; border-radius: 5px; }
+.project-panel .pct { padding-bottom: 10px; }
+.page:has(.project-wheel) { padding-bottom: 0; }
+
+/* blitz day screen */
+.day-sub { font-size: 14px; color: #9CC4CF; margin: -6px 0 8px; padding: 0 20px; }
+.stop-row { display: flex; align-items: center; gap: 10px; min-width: 0; max-width: 100%; }
+.stop-time { font-style: normal; font-size: 13px; font-weight: 600; color: #9CC4CF; min-width: 52px; text-align: right; font-variant-numeric: tabular-nums; }
+.stop-dot { flex: none; width: 9px; height: 9px; border-radius: 50%; border: 2px solid #FF8A65; }
+.stop-dot.t { background: #FF8A65; }
+.stop-name { overflow: hidden; text-overflow: ellipsis; }
+.day-hotel { font-size: 13px; color: #9CC4CF; padding: 6px 20px 0; }
+
+/* blitz store details above the questions */
+.stop-info { display: flex; flex-direction: column; gap: 6px; padding: 0 22px 8px; font-size: 13px; color: #9CC4CF; }
+.stop-tags { display: flex; flex-wrap: wrap; justify-content: center; gap: 6px 12px; align-items: center; }
+.tag { padding: 2px 9px; border-radius: 999px; border: 1px solid #9CC4CF; font-weight: 600; font-size: 12px; }
+.tag.t { border-color: #FF8A65; color: #0E4A5C; background: #FF8A65; }
+.stop-addr { color: #FFFFFF; text-decoration: none; font-weight: 600; }
+.stop-addr:active, .stop-addr:hover { color: #FF8A65; }
+.stop-note { color: #FFB4A0; }
