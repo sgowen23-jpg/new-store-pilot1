@@ -9,7 +9,7 @@ const pct = (a, b) => (b ? Math.round((a / b) * 100) : 0) + '%'
 /* ---------- projects on the home wheel (swipe left / right) ---------- */
 const PROJECTS = [
   { key: 'gsv', title: <>Team V GSV<br />Non Universe</>, tab: 'GSV Non Universe' },
-  { key: 'blitz', title: <>NSW Sun Tower<br />Blitz</>, tab: 'NSW Blitz' },
+  { key: 'blitz', title: <>NSW Vitasoy<br />Blitz</>, tab: 'NSW Blitz' },
 ]
 const BLITZ_DAYS = ['TUE', 'WED', 'THU']
 const DAY_NAMES = { TUE: 'Tuesday', WED: 'Wednesday', THU: 'Thursday' }
@@ -112,7 +112,7 @@ function Itinerary({ stops, onBack }) {
             </section>
           )
         })}
-        <p className="itin-foot">km are road distances on the fastest route (toll roads). Drive times include 25% for traffic. Times assume leaving at 7:30am, 25 min per call and a 30 min lunch.</p>
+        <p className="itin-foot">km are road distances on the fastest route (toll roads), estimated for newly added stores. Times assume leaving at 7:30am, 40 min at key stores (Vitasoy top 5, stores with a tower, Doonside), 30 min elsewhere, extra parking time in the inner city and a 30 min lunch.</p>
       </div>
     </div>
   )
