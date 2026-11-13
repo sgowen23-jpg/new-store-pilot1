@@ -1,5 +1,5 @@
 -- =====================================================================
--- NSW Sun Tower Blitz (second project in the New Store Pilot app)
+-- NSW Vitasoy Blitz (second project in the New Store Pilot app)
 -- Own tables, nothing shared with Team VB tables or new_store_visits.
 -- Safe to re-run. Paste into Supabase > SQL Editor > New query > Run.
 -- =====================================================================
@@ -88,41 +88,42 @@ do $$ begin
   create policy blitz_update on public.blitz_stops for update to anon, authenticated using (true) with check (true);
 exception when duplicate_object then null; end $$;
 
--- 4. The plan: 20 sun tower targets, 6 fill-ins, hotels. km and drive_min are from the previous stop.
+-- 4. The plan (Dec 2026 route, Vitasoy-first): 26 stores in a clockwise loop from the airport, plus hotels.
+--    km and drive_min are from the previous stop. Legs to newly added stores are estimates.
 insert into public.blitz_stops (id, day, day_area, seq, kind, store_id, store_name, suburb, address, lat, lng, arrive, km, drive_min, store_rank, gaps, must_have, note) values
-  ('tue-00', 'TUE', 'Shire, Illawarra & Macarthur', 0, 'start', null, 'Sutherland Motel', null, '2 Aldgate St, Sutherland NSW', -34.031, 151.058, '7:30am', 0, 0, null, null, null, 'Free parking'),
-  ('tue-01', 'TUE', 'Shire, Illawarra & Macarthur', 1, 'target', 53365, 'IGA M Sutherland', 'Sutherland', '561 President Avenue, Sutherland', -34.033512, 151.058144, '7:32am', 0.6, 2, 596, 64, 19, null),
-  ('tue-02', 'TUE', 'Shire, Illawarra & Macarthur', 2, 'fillin', 17306, 'Supabarn Gymea', 'Gymea', '76 Gymea Rd, Gymea', -34.036379, 151.085127, '8:02am', 2.9, 6, null, 134, 48, null),
-  ('tue-03', 'TUE', 'Shire, Illawarra & Macarthur', 3, 'target', 53338, 'IGA L Woonona Plus Liquor', 'Woonona', '10 Russell St, Woonona', -34.341179, 150.908411, '9:19am', 45, 52, 314, 40, 12, '22-line order cancelled in March.'),
-  ('tue-04', 'TUE', 'Shire, Illawarra & Macarthur', 4, 'target', 53367, 'IGA M Thirroul', 'Thirroul', 'Lawrence Hargreave Drive, Thirroul', -34.316307, 150.920917, '9:50am', 3.6, 7, 249, 23, 5, 'March order cancelled.'),
-  ('tue-05', 'TUE', 'Shire, Illawarra & Macarthur', 5, 'target', 98518, 'IGA L Bargo', 'Bargo', '90 Railside Ave, Bargo', -34.29083, 150.579135, '11:14am', 55.2, 59, 321, null, null, '7-line order cancelled in March.'),
-  ('tue-06', 'TUE', 'Shire, Illawarra & Macarthur', 6, 'target', 392, 'IGA L Picton (khan''s)', 'Picton', '100 Argyle St, Picton', -34.168791, 150.612127, '12:02pm', 15.8, 23, 423, 33, 11, '12-line order cancelled in March.'),
-  ('tue-07', 'TUE', 'Shire, Illawarra & Macarthur', 7, 'target', 16107, 'IGA M West Hoxton', 'West Hoxton', 'Edmonson Ave, West Hoxton', -33.950233, 150.808604, '1:44pm', 38.5, 47, 839, 71, 29, null),
-  ('tue-08', 'TUE', 'Shire, Illawarra & Macarthur', 8, 'target', 32677, 'IGA M Greenfield Park', 'Greenfield Park', '1 Greenfield Raod, Greenfield Park', -33.872199, 150.889414, '2:31pm', 15.4, 22, 398, null, null, null),
-  ('tue-09', 'TUE', 'Shire, Illawarra & Macarthur', 9, 'target', 21461, 'IGA L Wakeley', 'Wakeley', 'Cnr Bulls Road, Lamond Street, Wakeley', -33.869632, 150.91105, '3:02pm', 2.4, 6, 516, 40, 11, null),
-  ('tue-10', 'TUE', 'Shire, Illawarra & Macarthur', 10, 'hotel', null, 'Quest Liverpool', null, '39 Scott St, Liverpool NSW', -33.92, 150.924, '3:40pm', 7.7, 13, null, null, null, 'Free parking. Backup: Mercure Sydney Liverpool, Prestons'),
-  ('wed-00', 'WED', 'Mountains, West & Hills', 0, 'start', null, 'Quest Liverpool', null, '39 Scott St, Liverpool NSW', -33.92, 150.924, '7:30am', 0, 0, null, null, null, 'Free parking. Backup: Mercure Sydney Liverpool, Prestons'),
-  ('wed-01', 'WED', 'Mountains, West & Hills', 1, 'target', 40484, 'IGA M Luddenham Plus Liquor', 'Luddenham', '2130 The Northern Rd, Luddenham', -33.883712, 150.69427, '8:04am', 28.2, 34, 1055, null, null, null),
-  ('wed-02', 'WED', 'Mountains, West & Hills', 2, 'target', 6252, 'IGA L Lloyds Springwood', 'Springwood', '167 Macquarie Rd, Springwood', -33.698808, 150.565831, '9:11am', 33.2, 41, 154, 56, 23, null),
-  ('wed-03', 'WED', 'Mountains, West & Hills', 3, 'target', 40655, 'IGA L Blaxland Karellas', 'Blaxland', '152 Great Western Highway, Blaxland', -33.751915, 150.611652, '9:49am', 9.5, 14, 44, 26, 4, 'Ordered 11 Oct (7 lines), no sun item.'),
-  ('wed-04', 'WED', 'Mountains, West & Hills', 4, 'target', 32600, 'IGA L Erskine Park (ashcroft)', 'Erskine Park', 'Cnr Swallow  Peppertree Rd., Erskine Park', -33.804879, 150.803692, '10:43am', 25.5, 29, 250, 29, 7, null),
-  ('wed-05', 'WED', 'Mountains, West & Hills', 5, 'fillin', 38469, 'IGA M Rooty Hill North', 'Rooty Hill', '26  Rooty Hill Road North, Rooty Hill', -33.770395, 150.843555, '11:23am', 8.3, 15, null, 65, 26, null),
-  ('wed-06', 'WED', 'Mountains, West & Hills', 6, 'target', 19366, 'Supa Valu Romeos Doonside', 'Doonside', '52 Rosenthal Street, Doonside', -33.772239, 150.876361, '12:00pm', 6.4, 12, 4, 46, 12, 'Top-ranked store with no sun order. Lead call.'),
-  ('wed-07', 'WED', 'Mountains, West & Hills', 7, 'target', 43698, 'IGA M Beaumont Hills Plus Liquor', 'Beaumont Hills', '70 The Parkway, Beaumont Hills', -33.6984, 150.941301, '1:18pm', 14.4, 24, 940, 88, 35, null),
-  ('wed-08', 'WED', 'Mountains, West & Hills', 8, 'target', 13949, 'IGA M Rouse Hill (chriss)', 'Rouse Hill', 'Shop 6. 57 Windsor Rd, Rouse Hill', -33.710612, 150.954831, '1:50pm', 3.4, 7, 1043, 77, 31, 'Ordered 25 Aug (7 lines), no sun item.'),
-  ('wed-09', 'WED', 'Mountains, West & Hills', 9, 'fillin', 22373, 'IGA M Pennant Hills', 'Pennant Hills', 'Ramsay & Hillcrest Roads, Pennant Hills', -33.73772, 151.071448, '2:38pm', 13.8, 23, null, 63, 15, null),
-  ('wed-10', 'WED', 'Mountains, West & Hills', 10, 'target', 21544, 'IGA M Lindfield (supamart IGA Lindfield)', 'Lindfield', '27 Lindfield Ave, Lindfield', -33.77433, 151.169646, '3:27pm', 15.1, 24, 319, null, null, '7-line order cancelled in March.'),
-  ('wed-11', 'WED', 'Mountains, West & Hills', 11, 'hotel', null, 'Crowne Plaza Sydney Macquarie Park', null, '7-11 Talavera Rd, Macquarie Park NSW', -33.776, 151.123, '4:04pm', 6.1, 12, null, null, null, 'Parking approx. $20/night. Some sites still list it as Courtyard by Marriott North Ryde'),
-  ('thu-00', 'THU', 'Parramatta, Bankstown & home', 0, 'start', null, 'Crowne Plaza Sydney Macquarie Park', null, '7-11 Talavera Rd, Macquarie Park NSW', -33.776, 151.123, '7:30am', 0, 0, null, null, null, 'Parking approx. $20/night. Some sites still list it as Courtyard by Marriott North Ryde'),
-  ('thu-01', 'THU', 'Parramatta, Bankstown & home', 1, 'fillin', 7857, 'IGA M Plus Liquor Northmead', 'Northmead', '2 Campbell Street, Northmead', -33.789592, 150.996748, '7:51am', 16.9, 21, null, 63, 19, null),
-  ('thu-02', 'THU', 'Parramatta, Bankstown & home', 2, 'target', 24058, 'IGA M Merrylands', 'Merrylands', 'Shop 7. Merryway Shopping Centre. 530 Merrylands Rd, Merrylands', -33.8326, 150.968413, '8:30am', 8.4, 14, 524, 26, 12, '37-line order cancelled in March. Re-pitch.'),
-  ('thu-03', 'THU', 'Parramatta, Bankstown & home', 3, 'target', 52511, 'IGA L Georges Hall', 'Georges Hall', 'Lot 601 Birdwood Rd, Georges Hall', -33.913039, 150.990492, '9:14am', 11.6, 19, 215, 31, 12, 'March order cancelled; 1 line in May.'),
-  ('thu-04', 'THU', 'Parramatta, Bankstown & home', 4, 'target', 21776, 'IGA M Condell Park', 'Condell Park', 'Sho 1, 63-77 Simmat Ave, Condell Park', -33.923376, 151.01175, '9:45am', 3.4, 6, 574, 78, 30, 'Self-tracked order in May, no sun item.'),
-  ('thu-05', 'THU', 'Parramatta, Bankstown & home', 5, 'fillin', 33103, 'IGA M Peakhurst', 'Peakhurst', '701 Forest Rd, Peakhurst', -33.95977, 151.063033, '10:25am', 8.9, 15, null, 143, 59, 'Biggest gap list in NSW.'),
-  ('thu-06', 'THU', 'Parramatta, Bankstown & home', 6, 'target', 20634, 'IGA M Rosebery', 'Roseberry', 'Cnr Botany  Queen St, Roseberry', -33.920611, 151.197302, '11:13am', 16.7, 22, 795, 49, 16, 'Ordered 4 Nov (3 lines), no sun item.'),
-  ('thu-07', 'THU', 'Parramatta, Bankstown & home', 7, 'fillin', 2341, 'IGA M Botany', 'Botany', '1128 Botany Road, Botany', -33.945038, 151.196278, '11:44am', 2.9, 6, null, 56, 18, null),
-  ('thu-08', 'THU', 'Parramatta, Bankstown & home', 8, 'hotel', null, 'Sydney Airport', null, 'Mascot NSW 2020', -33.9399, 151.1753, '12:55pm', 7.3, 17, null, null, null, null)
+  ('tue-00', 'TUE', 'Inner city, east & inner west', 0, 'start', null, 'ibis Sydney Airport', null, '205 O''Riordan St, Mascot NSW', -33.9235, 151.188, '7:30am', 0, 0, null, null, null, 'Or any hotel near the airport'),
+  ('tue-01', 'TUE', 'Inner city, east & inner west', 1, 'fillin', 84035, 'IGA Local Grocer Mascot', 'Mascot', 'Mascot NSW', -33.929, 151.188, '7:40am', 0.9, 10, null, null, null, 'Vitasoy #20 in NSW.'),
+  ('tue-02', 'TUE', 'Inner city, east & inner west', 2, 'fillin', 2341, 'IGA M Botany', 'Botany', '1128 Botany Road, Botany', -33.945038, 151.196278, '8:20am', 2.7, 10, null, 56, 18, 'Vitasoy #16 in NSW.'),
+  ('tue-03', 'TUE', 'Inner city, east & inner west', 3, 'target', 20634, 'IGA M Rosebery', 'Rosebery', 'Cnr Botany  Queen St, Rosebery', -33.920611, 151.197302, '9:00am', 2.9, 10, 795, 49, 16, 'Vitasoy #9 in NSW. Ordered 4 Nov (3 lines), no sun item.'),
+  ('tue-04', 'TUE', 'Inner city, east & inner west', 4, 'fillin', null, 'IGA Romeos Foodhall Bondi', 'Bondi', 'Bondi NSW', -33.893, 151.263, '10:00am', 9.5, 30, 627, null, null, 'Has a sun tower: reorder.'),
+  ('tue-05', 'TUE', 'Inner city, east & inner west', 5, 'fillin', null, 'IGA M Alexandria', 'Alexandria', 'Alexandria NSW', -33.905, 151.196, '11:10am', 8.9, 30, 1303, null, null, 'Has a sun tower: reorder.'),
+  ('tue-06', 'TUE', 'Inner city, east & inner west', 6, 'fillin', 211128, 'IGA M Romeo''s Foodhall South Eveleigh', 'Eveleigh', 'Eveleigh NSW', -33.896, 151.1925, '12:00pm', 1.5, 10, null, null, null, 'Vitasoy #11 in NSW.'),
+  ('tue-07', 'TUE', 'Inner city, east & inner west', 7, 'fillin', 8863, 'IGA M Newtown', 'Newtown', 'Newtown NSW', -33.8975, 151.179, '1:10pm', 1.8, 10, null, null, null, 'Vitasoy #10 in NSW.'),
+  ('tue-08', 'TUE', 'Inner city, east & inner west', 8, 'fillin', 32864, 'IGA M Dulwich Hill', 'Dulwich Hill', 'Dulwich Hill NSW', -33.9046, 151.1395, '2:00pm', 5.2, 20, null, null, null, 'Vitasoy #1 in NSW.'),
+  ('tue-09', 'TUE', 'Inner city, east & inner west', 9, 'fillin', 19435, 'IGA L Summer Hill (Romeo)', 'Summer Hill', 'Summer Hill NSW', -33.8915, 151.1375, '2:50pm', 2.1, 10, null, null, null, 'Vitasoy #2 in NSW.'),
+  ('tue-10', 'TUE', 'Inner city, east & inner west', 10, 'fillin', null, 'IGA M Drummoyne Plus CBN', 'Drummoyne', 'Drummoyne NSW', -33.853, 151.154, '3:50pm', 6.4, 20, 432, null, null, 'Has a sun tower: reorder.'),
+  ('tue-11', 'TUE', 'Inner city, east & inner west', 11, 'fillin', 1683, 'IGA M Breakfast Point Lqr', 'Breakfast Point', 'Breakfast Point NSW', -33.8418, 151.1095, '4:50pm', 6, 20, null, null, null, 'Vitasoy #5 in NSW.'),
+  ('tue-12', 'TUE', 'Inner city, east & inner west', 12, 'hotel', null, 'Crowne Plaza Sydney Macquarie Park', null, '7-11 Talavera Rd, Macquarie Park NSW', -33.776, 151.123, '5:50pm', 10.4, 20, null, null, null, 'Parking approx. $20/night. Some sites still list it as Courtyard by Marriott North Ryde'),
+  ('wed-00', 'WED', 'North Shore, west & south-west', 0, 'start', null, 'Crowne Plaza Sydney Macquarie Park', null, '7-11 Talavera Rd, Macquarie Park NSW', -33.776, 151.123, '7:30am', 0, 0, null, null, null, 'Parking approx. $20/night. Some sites still list it as Courtyard by Marriott North Ryde'),
+  ('wed-01', 'WED', 'North Shore, west & south-west', 1, 'fillin', 21451, 'IGA M Turramurra Plaza (Corp)', 'Turramurra', 'Turramurra NSW', -33.7325, 151.129, '7:40am', 6.8, 10, null, null, null, 'Vitasoy #13 in NSW.'),
+  ('wed-02', 'WED', 'North Shore, west & south-west', 2, 'fillin', 22373, 'IGA M Pennant Hills', 'Pennant Hills', 'Ramsay & Hillcrest Roads, Pennant Hills', -33.73772, 151.071448, '8:25am', 7.5, 15, null, 63, 15, null),
+  ('wed-03', 'WED', 'North Shore, west & south-west', 3, 'fillin', 7857, 'IGA M Plus Liquor Northmead', 'Northmead', '2 Campbell Street, Northmead', -33.7895917, 150.996748, '9:20am', 12.6, 25, null, 63, 19, null),
+  ('wed-04', 'WED', 'North Shore, west & south-west', 4, 'target', 19366, 'Supa Valu Romeos Doonside', 'Doonside', '52 Rosenthal Street, Doonside', -33.7722387, 150.8763608, '10:10am', 15.8, 20, 4, 46, 12, 'Top-ranked store with no sun order. Lead call.'),
+  ('wed-05', 'WED', 'North Shore, west & south-west', 5, 'fillin', 38469, 'IGA M Rooty Hill North', 'Rooty Hill', '26  Rooty Hill Road North, Rooty Hill', -33.7703954, 150.8435552, '11:00am', 6.4, 10, null, 65, 26, 'Vitasoy #18 in NSW.'),
+  ('wed-06', 'WED', 'North Shore, west & south-west', 6, 'target', 32600, 'IGA L Erskine Park (ashcroft)', 'Erskine Park', 'Cnr Swallow  Peppertree Rd., Erskine Park', -33.804879, 150.803692, '11:45am', 8.3, 15, 250, 29, 7, null),
+  ('wed-07', 'WED', 'North Shore, west & south-west', 7, 'target', 32677, 'IGA M Greenfield Park', 'Greenfield Park', '1 Greenfield Raod, Greenfield Park', -33.8721988, 150.8894143, '1:05pm', 15.3, 20, 398, null, null, 'Vitasoy #6 in NSW.'),
+  ('wed-08', 'WED', 'North Shore, west & south-west', 8, 'target', 21461, 'IGA L Wakeley', 'Wakeley', 'Cnr Bulls Road, Lamond Street, Wakeley', -33.869632, 150.91105, '1:40pm', 2.4, 5, 516, 40, 11, null),
+  ('wed-09', 'WED', 'North Shore, west & south-west', 9, 'target', 16107, 'IGA M West Hoxton', 'West Hoxton', 'Edmonson Ave, West Hoxton', -33.950233, 150.808604, '2:35pm', 18.2, 25, 839, 71, 29, 'Vitasoy #7 in NSW.'),
+  ('wed-10', 'WED', 'North Shore, west & south-west', 10, 'hotel', null, 'Quest Liverpool', null, '39 Scott St, Liverpool NSW', -33.92, 150.924, '3:25pm', 15.6, 20, null, null, null, 'Free parking. Backup: Mercure Sydney Liverpool, Prestons'),
+  ('thu-00', 'THU', 'Bankstown & Shire, back to the airport', 0, 'start', null, 'Quest Liverpool', null, '39 Scott St, Liverpool NSW', -33.92, 150.924, '7:30am', 0, 0, null, null, null, 'Free parking. Backup: Mercure Sydney Liverpool, Prestons'),
+  ('thu-01', 'THU', 'Bankstown & Shire, back to the airport', 1, 'target', 24058, 'IGA M Merrylands', 'Merrylands', 'Shop 7. Merryway Shopping Centre. 530 Merrylands Rd, Merrylands', -33.8326, 150.968413, '7:55am', 14.8, 25, 524, 26, 12, 'Vitasoy #17 in NSW. 37-line order cancelled in March. Re-pitch.'),
+  ('thu-02', 'THU', 'Bankstown & Shire, back to the airport', 2, 'target', 52511, 'IGA L Georges Hall', 'Georges Hall', 'Lot 601 Birdwood Rd, Georges Hall', -33.913039, 150.990492, '8:45am', 11.6, 20, 215, 31, 12, 'Vitasoy #8 in NSW. March order cancelled; 1 line in May.'),
+  ('thu-03', 'THU', 'Bankstown & Shire, back to the airport', 3, 'target', 21776, 'IGA M Condell Park', 'Condell Park', 'Sho 1, 63-77 Simmat Ave, Condell Park', -33.923376, 151.01175, '9:20am', 3.4, 5, 574, 78, 30, 'Self-tracked order in May, no sun item.'),
+  ('thu-04', 'THU', 'Bankstown & Shire, back to the airport', 4, 'fillin', 33103, 'IGA M Peakhurst', 'Peakhurst', '701 Forest Rd, Peakhurst', -33.95977, 151.063033, '10:05am', 8.9, 15, null, 143, 59, 'Biggest gap list in NSW.'),
+  ('thu-05', 'THU', 'Bankstown & Shire, back to the airport', 5, 'fillin', 17306, 'Supabarn Gymea', 'Gymea', '76 Gymea Rd, Gymea', -34.036379, 151.085127, '10:55am', 12.3, 20, null, 134, 48, null),
+  ('thu-06', 'THU', 'Bankstown & Shire, back to the airport', 6, 'target', 53365, 'IGA M Sutherland', 'Sutherland', '561 President Avenue, Sutherland', -34.0335124, 151.0581436, '11:30am', 2.9, 5, 596, 64, 19, null),
+  ('thu-07', 'THU', 'Bankstown & Shire, back to the airport', 7, 'hotel', null, 'Sydney Airport', null, 'Mascot NSW 2020', -33.9399, 151.1753, '12:30pm', 21, 30, null, null, null, null)
 on conflict (id) do nothing;
 
--- Check: should return TUE 11, WED 12, THU 9 (stores plus hotels)
+-- Check: should return TUE 13, WED 11, THU 8 (stores plus hotels)
 -- select day, kind, count(*) from public.blitz_stops group by day, kind order by day, kind;

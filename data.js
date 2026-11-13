@@ -52,7 +52,7 @@ export async function saveVisit(storeId, a) {
   return row
 }
 
-/* ---------- NSW Sun Tower Blitz (second project) ---------- */
+/* ---------- NSW Vitasoy Blitz (second project) ---------- */
 
 const BLITZ_TABLE = 'blitz_stops'
 const BLITZ_DEMO_KEY = 'nsp_demo_blitz'

@@ -59,7 +59,7 @@ where store_id = 12345;
 ## Projects wheel (added Nov 2026)
 The home screen is now a horizontal wheel: swipe left or right (or drag with a mouse, or tap the dots) to change project.
 1. **Team V GSV Non Universe**: the state wheel above, unchanged.
-2. **NSW Sun Tower Blitz**: a day wheel (TUE, WED, THU). Tap a day for that day's stops in driving order, with arrival times (filled dot = sun tower target, hollow = fill-in) and tonight's hotel. Tap a store for its rank, gaps, address (opens Maps) and notes, then answer: Call completed, Sold in tower (targets only), Units ordered, Notes.
+2. **NSW Vitasoy Blitz** (Vitasoy-first; run `nsw_blitz_route_v2.sql` to load the Dec 2026 route): a day wheel (TUE, WED, THU). Tap a day for that day's stops in driving order, with arrival times (filled dot = sun tower target, hollow = fill-in) and tonight's hotel. Tap a store for its rank, gaps, address (opens Maps) and notes, then answer: Call completed, Sold in tower (targets only), Units ordered, Notes.
 
 Setup: run `nsw_blitz.sql` in the Supabase SQL Editor once. It creates `blitz_stops` (and a `blitz_stops_log` backup) with the same no-login access rules as the pilot. Check: `select day, kind, count(*) from blitz_stops group by day, kind;`
 
