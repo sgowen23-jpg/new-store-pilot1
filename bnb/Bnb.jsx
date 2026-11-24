@@ -117,6 +117,7 @@ export default function Bnb() {
 
   const storeOk = s => (scope !== 'team' || D.team.has(s.id)) && (st === 'All' || s.state === st) && (!rep || s.rep === rep) && (!banner || s.b === banner) && (!activeOnly || s.active)
   const prodOk = p => {
+    if (p.hide) return false
     if (rg === 'ss' && !p.ss) return false
     if (rg === 'msl' && !p.msl) return false
     if (rg === 'pp' && !p.pp) return false
