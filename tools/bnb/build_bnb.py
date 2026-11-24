@@ -8,6 +8,8 @@ import openpyxl
 from collections import Counter
 import onepager
 
+EXPORTS = [a.split('=', 1)[1] for a in sys.argv if a.startswith('--export=')]
+sys.argv = [a for a in sys.argv if not a.startswith('--export=')]
 bnb_dir, orders_path, out_path = sys.argv[1:4]
 STATE = {'South Australia':'SA','Victoria':'VIC','New South Wales':'NSW','Queensland':'QLD','West Australia':'WA','Western Australia':'WA'}
 
@@ -45,7 +47,21 @@ def read_report(path):
         stores.append(dict(id=num(r[1]), n=str(r[0]).strip(), st=STATE.get(r[2], 'Other'), b=r[3], mso=r[4], rk=num(r[5]), bought=bought))
     return date, prods, stores
 
-reports = sorted((read_report(f) for f in glob.glob(bnb_dir + '/*.xlsb')), key=lambda x: x[0])
+def read_export(spec):
+    # store x item export (one row per store and item): SUM RANGING > 0 = bought
+    path, day = spec.rsplit('@', 1)
+    ws = openpyxl.load_workbook(path, read_only=True, data_only=True).worksheets[0]
+    rows = list(ws.iter_rows(values_only=True)); ix = {h: i for i, h in enumerate(rows[0])}
+    prods, stores = {}, {}
+    for r in rows[1:]:
+        sid, ref = str(r[ix['STORE ID']]), str(r[ix['METCASH CODE']])
+        prods.setdefault(ref, (None, ref, None, None, None, None))
+        s = stores.setdefault(sid, dict(id=sid, n=r[ix['STORE NAME']], st=r[ix['STATE']] if r[ix['STATE']] in ('SA','VIC','NSW','QLD','WA') else 'Other',
+                                       b=None, mso=None, rk=num(r[ix['STORE RANK']]), rep=r[ix['REP NAME']], bought=set()))
+        if (r[ix['SUM RANGING']] or 0) > 0: s['bought'].add(ref)
+    return dt.date.fromisoformat(day), list(prods.values()), list(stores.values())
+
+reports = sorted([read_report(f) for f in glob.glob(bnb_dir + '/*.xlsb')] + [read_export(e) for e in EXPORTS], key=lambda x: x[0])
 dates = [r[0] for r in reports]
 print('reports', len(reports), dates[0], '->', dates[-1])
 
@@ -54,12 +70,19 @@ P = {}
 for ri, (d, prods, _) in enumerate(reports):
     for (_, ref, name, ean, cat, com) in prods:
         old = P.get(ref, {})
+        if name is None:  # export row: keep metadata from the BNB reports
+            if old: continue
+            name = ref
         P[ref] = dict(r=ref, n=name.lstrip('*'), del_=name.startswith('*'), e=ean, c=cat or old.get('c'), cm=com or old.get('cm'), last=ri)
 # stores: union by id, latest metadata wins
 S = {}
+EXPORT_REP = {}
 for ri, (d, _, stores) in enumerate(reports):
     for s in stores:
-        S[s['id']] = dict(id=s['id'], n=s['n'], st=s['st'], b=s['b'] or '', mso=s['mso'] or '', rk=s['rk'], last=ri)
+        old = S.get(s['id'], {})
+        S[s['id']] = dict(id=s['id'], n=s['n'] or old.get('n'), st=s['st'] or old.get('st'), b=s['b'] or old.get('b', ''),
+                          mso=s['mso'] or old.get('mso', ''), rk=s['rk'] or old.get('rk'), last=ri)
+        if s.get('rep') and s['rep'] != 'Unassigned': EXPORT_REP[s['id']] = s['rep']
 
 prod_list = sorted(P.values(), key=lambda p: (p['c'] or '', p['n']))
 pidx = {p['r']: i for i, p in enumerate(prod_list)}
@@ -151,6 +174,7 @@ for r in rows[1:]:
     sid = str(r[ix['Store ID']])
     if sid in sidx and sid not in reps: cnt.setdefault(sid, Counter())[r[ix['Rep']]] += 1
 for sid, c in cnt.items(): reps[sid] = c.most_common(1)[0][0]
+reps.update(EXPORT_REP)
 print('stores with rep', len(reps), Counter(reps.values()))
 
 # team store list (486 stores, matched by name to BNB store names)
@@ -176,6 +200,7 @@ out = dict(
     products=[{k: v for k, v in p.items() if k not in ('last',) and v not in (None, False, '')} | ({'del': True} if p['del_'] else {}) for p in prod_list],
     stores=[[s['id'], s['n'], s['st'], s['b'], s['mso'], s['rk'], reps.get(s['id'], '')] for s in store_list],
     seenS=seenS, seenP=seenP,
+    act=[1 if (m >> (len(dates) - 1)) & 1 or (m >> (len(dates) - 2)) & 1 else 0 for m in seenS],
     h=H,
     sun=sun,
     team=team,

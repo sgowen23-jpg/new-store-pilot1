@@ -92,7 +92,7 @@ export default function Bnb() {
     const cols = data.reports.concat(data.ext)
     const stores = data.stores.map(([id, n, state, b, mso, rk, rp], i) => ({
       i, id, n, state, b, mso, rk: rk ? +rk : 99999, rep: rp,
-      seen: data.seenS[i], active: (data.seenS[i] >> (NB - 1)) & 1, sun: data.sun[id] || null,
+      seen: data.seenS[i], active: data.act ? data.act[i] : (data.seenS[i] >> (NB - 1)) & 1, sun: data.sun[id] || null,
     }))
     const products = data.products.map((p, i) => ({ ...p, i, seen: data.seenP[i] }))
     const reps = [...new Set(stores.map(s => s.rep).filter(Boolean))].sort()
@@ -141,7 +141,7 @@ export default function Bnb() {
     const stores = D.stores.filter(storeOk)
     const out = []
     for (const p of pickList) {
-      if (!((p.seen >> (D.NB - 1)) & 1)) continue // not in the latest report
+      if (!((p.seen >> (D.NB - 1)) & 1) && !((p.seen >> (D.NB - 2)) & 1)) continue // not in either of the last two reports
       if (p.ppk) continue // the prepack tower itself is not a line to range
       const c = { buy: 0, lap: 0, nev: 0, pp: 0, hold: 0 }
       for (const s of stores) { const l = line(s, p); if (l) c[l.status]++ }
