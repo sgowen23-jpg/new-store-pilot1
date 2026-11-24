@@ -4,7 +4,7 @@ const STATES = ['All', 'SA', 'WA', 'NSW', 'QLD', 'VIC', 'Other']
 const RANGES = [['all', 'All lines'], ['ss', 'Sea Salt'], ['msl', 'MSL incl. Sea Salt'], ['pp', 'Sun prepack 6']]
 const CHIPS = [['ss', 'Sea Salt'], ['msl', 'MSL'], ['all', 'All lines'], ['pp', 'Sun prepack 6']]
 const LABEL = { buy: 'Buying', lap: 'Lapsed', nev: 'Never', pp: 'SUN PP', hold: 'Sun Hold' }
-const STATUS_ORDER = { lap: 0, nev: 1, hold: 2, buy: 3, pp: 4 }
+const STATUS_ORDER = { nev: 0, lap: 1, hold: 2, buy: 3, pp: 4 }
 const PAGE = 300
 const WIDE = 1000
 
@@ -150,7 +150,7 @@ export default function Bnb() {
       num: (a, b) => num(a) - num(b),
       stat: (a, b) => STATUS_ORDER[a.status] - STATUS_ORDER[b.status] || name(a).localeCompare(name(b)),
       pri: view === 'store'
-        ? (a, b) => pri(a) - pri(b) || (a.p.rc || '').localeCompare(b.p.rc || '') || (a.p.rank || 99) - (b.p.rank || 99) || STATUS_ORDER[a.status] - STATUS_ORDER[b.status]
+        ? (a, b) => STATUS_ORDER[a.status] - STATUS_ORDER[b.status] || pri(a) - pri(b) || (a.p.rc || '').localeCompare(b.p.rc || '') || (a.p.rank || 99) - (b.p.rank || 99)
         : (a, b) => STATUS_ORDER[a.status] - STATUS_ORDER[b.status] || a.s.rk - b.s.rk,
     }[sort]
     return f.sort(cmp)
@@ -230,7 +230,7 @@ export default function Bnb() {
         {D.cats.map(x => <option key={x}>{x}</option>)}
       </select>
       <select value={sort} onChange={e => setSort(e.target.value)}>
-        <option value="pri">{view === 'store' ? 'Sort: Sea Salt, MSL, rank' : 'Sort: status, store rank'}</option>
+        <option value="pri">{view === 'store' ? 'Sort: Never, Lapsed, Buying' : 'Sort: Never, Lapsed, store rank'}</option>
         <option value="stat">Sort: status</option>
         <option value="az">Sort: A to Z</option>
         <option value="num">Sort: {view === 'store' ? 'item number' : 'store ID'}</option>
@@ -268,7 +268,7 @@ export default function Bnb() {
       {cur && view === 'store' && <p className="meta">{cur.b}{cur.mso ? ' · ' + cur.mso : ''} · store rank {cur.rk === 99999 ? 'n/a' : cur.rk}{cur.rep ? ' · ' + cur.rep : ''}{cur.sun ? ` · Sun prepack ${cur.sun[0] === 'pp' ? 'received' : 'on hold'} ${fmt(cur.sun[1])}` : ''}</p>}
 
       <div className="kpis">
-        {[['all', 'All lines', lines.length, ''], ['buy', 'Buying', c('buy'), 'g'], ['lap', 'Lapsed', c('lap'), 'a'], ['nev', 'Never', c('nev'), 'r'], ['sun', 'Sun PP / Hold', `${c('pp')} / ${c('hold')}`, 'b']]
+        {[['all', 'All lines', lines.length, ''], ['nev', 'Never', c('nev'), 'r'], ['lap', 'Lapsed', c('lap'), 'a'], ['buy', 'Buying', c('buy'), 'g'], ['sun', 'Sun PP / Hold', `${c('pp')} / ${c('hold')}`, 'b']]
           .map(([k, t, v, cl]) => <button key={k} className={'kpi ' + cl + (flt === k ? ' on' : '')} onClick={() => setFlt(k)}><span>{t}</span><b>{v}</b></button>)}
       </div>
 
@@ -322,7 +322,7 @@ export default function Bnb() {
       </div>
 
       <div className="m-kpis">
-        {[['lap', 'Lapsed', c('lap')], ['nev', 'Never', c('nev')], ['buy', 'Buying', c('buy')], ['sun', 'Sun PP', c('hold') ? `${c('pp')}/${c('hold')}` : c('pp')]]
+        {[['nev', 'Never', c('nev')], ['lap', 'Lapsed', c('lap')], ['buy', 'Buying', c('buy')], ['sun', 'Sun PP', c('hold') ? `${c('pp')}/${c('hold')}` : c('pp')]]
           .map(([k, t, v]) => <button key={k} className={'m-kpi k-' + k + (flt === k ? ' on' : '')} onClick={() => setFlt(flt === k ? 'all' : k)}><b>{v}</b><span>{t}</span></button>)}
       </div>
       <div className="m-count">{flt === 'all' ? `${shown.length} lines` : `${shown.length} ${LABEL[flt === 'sun' ? 'pp' : flt].toLowerCase()} · tap again to clear`}</div>
