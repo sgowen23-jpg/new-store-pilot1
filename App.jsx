@@ -542,6 +542,8 @@ export default function App() {
               <div className="sheet-lbl">Export visits</div>
               <button className="opt pri" onClick={() => doExport('xlsx')}><Sheet />Excel file</button>
               <button className="opt" onClick={() => doExport('html')}><Doc />HTML summary</button>
+              <div className="sheet-lbl">Tools</div>
+              <a className="opt" href="/bnb/" style={{ textDecoration: 'none' }}><Sheet />Beiersdorf buy / not buy</a>
               <button className="cancel" onClick={() => setMenu(false)}>Cancel</button>
             </div>
           </div>
