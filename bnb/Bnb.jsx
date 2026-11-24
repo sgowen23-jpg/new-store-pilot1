@@ -2,12 +2,19 @@ import React, { useEffect, useMemo, useState } from 'react'
 
 const STATES = ['All', 'SA', 'WA', 'NSW', 'QLD', 'VIC', 'Other']
 const RANGES = [['all', 'All lines'], ['ss', 'Sea Salt'], ['msl', 'MSL incl. Sea Salt'], ['pp', 'Sun prepack 6']]
+const CHIPS = [['ss', 'Sea Salt'], ['msl', 'MSL'], ['all', 'All lines'], ['pp', 'Sun prepack 6']]
 const LABEL = { buy: 'Buying', lap: 'Lapsed', nev: 'Never', pp: 'SUN PP', hold: 'Sun Hold' }
 const STATUS_ORDER = { lap: 0, nev: 1, hold: 2, buy: 3, pp: 4 }
 const PAGE = 300
+const WIDE = 1000
 
 const fmt = iso => { const [y, m, d] = iso.split('-'); return `${d}/${m}/${y.slice(2)}` }
 const highBit = m => (m ? 31 - Math.clz32(m) : -1)
+const bits = m => { let c = 0; while (m) { m &= m - 1; c++ } return c }
+const store = {
+  get: k => { try { return localStorage.getItem(k) } catch { return null } },
+  set: (k, v) => { try { localStorage.setItem(k, v) } catch { /* private mode */ } },
+}
 
 function csv(rows) {
   return rows.map(r => r.map(v => {
@@ -22,15 +29,34 @@ function download(name, text) {
   a.click()
   setTimeout(() => URL.revokeObjectURL(a.href), 1000)
 }
+function useWidth() {
+  const [w, setW] = useState(() => window.innerWidth)
+  useEffect(() => { const f = () => setW(window.innerWidth); window.addEventListener('resize', f); return () => window.removeEventListener('resize', f) }, [])
+  return w
+}
+
+const Icon = ({ name }) => {
+  const P = {
+    sun: <><circle cx="12" cy="12" r="4" /><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4" /></>,
+    moon: <path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z" />,
+    search: <><circle cx="11" cy="11" r="7" /><path d="M21 21l-4.3-4.3" /></>,
+    store: <><path d="M3 9l1.5-5h15L21 9" /><path d="M3 9a3 3 0 0 0 6 0 3 3 0 0 0 6 0 3 3 0 0 0 6 0" /><path d="M5 12v8h14v-8" /></>,
+    box: <><path d="M12 3l8 4.5v9L12 21l-8-4.5v-9z" /><path d="M12 12l8-4.5M12 12v9M12 12L4 7.5" /></>,
+    sliders: <><path d="M4 6h10M18 6h2M4 12h4M12 12h8M4 18h12" /><circle cx="16" cy="6" r="2" /><circle cx="10" cy="12" r="2" /><circle cx="18" cy="18" r="2" /></>,
+    download: <><path d="M12 4v11M7 10l5 5 5-5" /><path d="M4 20h16" /></>,
+    x: <path d="M6 6l12 12M18 6L6 18" />,
+  }
+  return <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">{P[name]}</svg>
+}
 
 export default function Bnb() {
   const [data, setData] = useState(null)
   const [err, setErr] = useState('')
   const [view, setView] = useState('store')
   const [scope, setScope] = useState('team')
-  const [st, setSt] = useState('SA')
+  const [st, setSt] = useState(() => store.get('bnb.state') || 'SA')
   const [rg, setRg] = useState('all')
-  const [rep, setRep] = useState('')
+  const [rep, setRep] = useState(() => store.get('bnb.rep') || '')
   const [banner, setBanner] = useState('')
   const [cat, setCat] = useState('')
   const [sort, setSort] = useState('pri')
@@ -40,11 +66,23 @@ export default function Bnb() {
   const [q, setQ] = useState('')
   const [sel, setSel] = useState(-1)
   const [limit, setLimit] = useState(PAGE)
+  const [dark, setDark] = useState(() => store.get('bnb.theme') !== 'light')
+  const [sheet, setSheet] = useState('') // '' | pick | filters
+  const [open, setOpen] = useState(null)
+  const width = useWidth()
+  const wide = width >= WIDE
 
   useEffect(() => {
     fetch('/bnb-data.json').then(r => { if (!r.ok) throw new Error(r.status); return r.json() })
       .then(setData).catch(() => setErr("Couldn't load the report data. Check signal and refresh."))
   }, [])
+  useEffect(() => {
+    document.documentElement.dataset.theme = dark ? 'dark' : 'light'
+    store.set('bnb.theme', dark ? 'dark' : 'light')
+    const m = document.querySelector('meta[name=theme-color]'); if (m) m.content = dark ? '#08222a' : '#0E4A5C'
+  }, [dark])
+  useEffect(() => { store.set('bnb.state', st) }, [st])
+  useEffect(() => { store.set('bnb.rep', rep) }, [rep])
 
   const D = useMemo(() => {
     if (!data) return null
@@ -72,8 +110,7 @@ export default function Bnb() {
     let status = mask ? (((mask >> L) & 1) ? 'buy' : 'lap') : 'nev'
     if (sunLine && s.sun[0] === 'pp') status = 'pp'
     else if (sunLine && s.sun[0] === 'hold' && status !== 'buy') status = 'hold'
-    const lastIdx = highBit(mask)
-    return { s, p, mask, status, lastIdx, sunLine }
+    return { s, p, mask, common, status, lastIdx: highBit(mask), sunLine }
   }
 
   const storeOk = s => (scope !== 'team' || D.team.has(s.id)) && (st === 'All' || s.state === st) && (!rep || s.rep === rep) && (!banner || s.b === banner) && (!activeOnly || s.active)
@@ -93,7 +130,7 @@ export default function Bnb() {
     return D.products.filter(p => prodOk(p) && (!qq || p.n.toLowerCase().includes(qq) || p.r.includes(qq)))
   }, [D, view, q, scope, st, rep, banner, activeOnly, rg, cat, hideDel])
 
-  const cur = pickList.find(x => x.i === sel) || pickList[0]
+  const cur = (D && sel >= 0 && (view === 'store' ? D.stores[sel] : D.products[sel])) || pickList[0]
 
   const lines = useMemo(() => {
     if (!D || !cur) return []
@@ -119,7 +156,7 @@ export default function Bnb() {
     return f.sort(cmp)
   }, [lines, flt, sort, view])
 
-  useEffect(() => setLimit(PAGE), [cur, flt, sort, view])
+  useEffect(() => { setLimit(PAGE); setOpen(null) }, [cur, flt, sort, view])
 
   if (err) return <div className="bnb"><p className="bnb-msg">{err}</p></div>
   if (!D) return <div className="bnb"><p className="bnb-msg">Loading reports…</p></div>
@@ -136,7 +173,7 @@ export default function Bnb() {
     for (let i = 0; i < D.cols.length; i++) {
       let cls = 'dot'
       if (i < D.NB) {
-        if (!((l.s.seen & l.p.seen) >> i & 1)) cls += ' na'
+        if (!((l.common >> i) & 1)) cls += ' na'
         else if ((l.mask >> i) & 1) cls += ' on'
       } else cls += ' ext'
       if (l.sunLine && l.s.sun[2] === i) cls = 'dot ' + (l.s.sun[0] === 'pp' ? 'pp' : 'hold')
@@ -149,8 +186,15 @@ export default function Bnb() {
     {p.ss ? <span className="tag ss">SS</span> : p.msl ? <span className="tag msl">MSL</span> : null}
     {p.pp && <span className="tag pp">PP</span>}
   </>
+  const pickLabel = x => view === 'store'
+    ? `${x.n} (${x.state}) · ${x.id}${x.rep ? ' · ' + x.rep : ''}${x.sun ? (x.sun[0] === 'pp' ? ' · SUN PP' : ' · Sun Hold') : ''}`
+    : `${x.r} · ${x.n}${x.ss ? ' · SS' : x.msl ? ' · MSL' : ''}${x.pp ? ' · PP' : ''}`
+  const curSub = !cur ? '' : view === 'store'
+    ? `${cur.state} · ${cur.id}${cur.rep ? ' · ' + cur.rep.split(' ')[0] : ''}${cur.sun ? ` · ${cur.sun[0] === 'pp' ? 'SUN PP' : 'Sun Hold'} ${fmt(cur.sun[1]).slice(0, 5)}` : ''}`
+    : `${cur.r}${cur.rrp ? ` · RRP $${cur.rrp.toFixed(2)} · GM ${cur.gm}%` : ''}${cur.ss ? ' · Sea Salt' : cur.msl ? ' · MSL' : ''}`
 
   const doExport = () => {
+    if (!shown.length) return
     const head = view === 'store'
       ? ['Store', 'Store ID', 'State', 'Item no.', 'Product', 'Range', 'Rank', 'Status', 'Last bought']
       : ['Product', 'Item no.', 'Store', 'Store ID', 'State', 'Rep', 'Status', 'Last bought']
@@ -160,63 +204,64 @@ export default function Bnb() {
     const who = (view === 'store' ? cur.n : cur.r).replace(/[^a-z0-9]+/gi, '_')
     download(`bnb_${who}_${data.built}.csv`, csv([head, ...rows]))
   }
+  const switchView = v => { setView(v); setSel(-1); setQ(''); setFlt('all') }
+  const resetSel = () => setSel(-1)
 
   const Seg = ({ items, value, onChange, label }) => (
     <div className="seg-row"><span className="seg-lbl">{label}</span>
       {items.map(([v, t]) => <button key={v} className={value === v ? 'on' : ''} onClick={() => onChange(v)}>{t}</button>)}
     </div>
   )
+  const filterControls = <>
+    <Seg label="Stores" items={[['team', `Your list (${D.team.size})`], ['all', 'All Metcash']]} value={scope} onChange={v => { setScope(v); resetSel() }} />
+    <Seg label="State" items={STATES.map(s => [s, s])} value={st} onChange={v => { setSt(v); resetSel() }} />
+    {wide && <Seg label="Range" items={RANGES} value={rg} onChange={setRg} />}
+    <div className="ctrls">
+      <select value={rep} onChange={e => { setRep(e.target.value); resetSel() }}>
+        <option value="">All reps</option>
+        {D.reps.map(r => <option key={r}>{r}</option>)}
+      </select>
+      <select value={banner} onChange={e => { setBanner(e.target.value); resetSel() }}>
+        <option value="">All banners</option>
+        {D.banners.map(b => <option key={b}>{b}</option>)}
+      </select>
+      <select value={cat} onChange={e => setCat(e.target.value)}>
+        <option value="">All categories</option>
+        {D.cats.map(x => <option key={x}>{x}</option>)}
+      </select>
+      <select value={sort} onChange={e => setSort(e.target.value)}>
+        <option value="pri">{view === 'store' ? 'Sort: Sea Salt, MSL, rank' : 'Sort: status, store rank'}</option>
+        <option value="stat">Sort: status</option>
+        <option value="az">Sort: A to Z</option>
+        <option value="num">Sort: {view === 'store' ? 'item number' : 'store ID'}</option>
+      </select>
+      <label><input type="checkbox" checked={hideDel} onChange={e => setHideDel(e.target.checked)} /> Hide deleted items</label>
+      <label><input type="checkbox" checked={activeOnly} onChange={e => { setActiveOnly(e.target.checked); resetSel() }} /> Current stores only</label>
+      {wide && <div className="view">
+        <button className={view === 'store' ? 'on' : ''} onClick={() => switchView('store')}>By store</button>
+        <button className={view === 'prod' ? 'on' : ''} onClick={() => switchView('prod')}>By product</button>
+      </div>}
+    </div>
+  </>
+  const foot = <p className="foot">Each dot is a 26 week report: green means the store bought it at least once in the 26 weeks to that date. Lapsed = bought in an earlier report but not the latest. Sun prepack stores get SUN PP on the 6 prepack lines. Range tags from the Beiersdorf Metcash range book (July 2026).{data.notes?.team_missing?.length ? ` Not in any report yet: ${data.notes.team_missing.join(', ')}.` : ''}</p>
+  const themeBtn = <button className="theme" onClick={() => setDark(!dark)} aria-label={dark ? 'Switch to day mode' : 'Switch to night mode'}><Icon name={dark ? 'sun' : 'moon'} /></button>
 
-  return (
+  /* ---------- PC: table ---------- */
+  if (wide) return (
     <div className="bnb">
       <header className="bnb-hdr">
         <div>
           <h1>Beiersdorf buy / not buy history</h1>
           <p>{D.NB} reports, W/E {fmt(data.reports[0])} to {fmt(data.reports[D.NB - 1])}. Sun prepack orders to {fmt(data.built)}.</p>
         </div>
-        <a href="/" className="back">Back to pilot</a>
+        <div className="hdr-r">{themeBtn}<a href="/" className="back">Back to pilot</a></div>
       </header>
-
-      <Seg label="Stores" items={[['team', `Your list (${D.team.size})`], ['all', 'All Metcash']]} value={scope} onChange={v => { setScope(v); setSel(-1) }} />
-      <Seg label="State" items={STATES.map(s => [s, s])} value={st} onChange={v => { setSt(v); setSel(-1) }} />
-      <Seg label="Range" items={RANGES} value={rg} onChange={setRg} />
-
-      <div className="ctrls">
-        <select value={rep} onChange={e => { setRep(e.target.value); setSel(-1) }}>
-          <option value="">All reps</option>
-          {D.reps.map(r => <option key={r}>{r}</option>)}
-        </select>
-        <select value={banner} onChange={e => { setBanner(e.target.value); setSel(-1) }}>
-          <option value="">All banners</option>
-          {D.banners.map(b => <option key={b}>{b}</option>)}
-        </select>
-        <select value={cat} onChange={e => setCat(e.target.value)}>
-          <option value="">All categories</option>
-          {D.cats.map(x => <option key={x}>{x}</option>)}
-        </select>
-        <select value={sort} onChange={e => setSort(e.target.value)}>
-          <option value="pri">{view === 'store' ? 'Sort: Sea Salt, MSL, rank' : 'Sort: status, store rank'}</option>
-          <option value="stat">Sort: status</option>
-          <option value="az">Sort: A to Z</option>
-          <option value="num">Sort: {view === 'store' ? 'item number' : 'store ID'}</option>
-        </select>
-        <label><input type="checkbox" checked={hideDel} onChange={e => setHideDel(e.target.checked)} /> Hide deleted items</label>
-        <label><input type="checkbox" checked={activeOnly} onChange={e => { setActiveOnly(e.target.checked); setSel(-1) }} /> Current stores only</label>
-        <div className="view">
-          <button className={view === 'store' ? 'on' : ''} onClick={() => { setView('store'); setSel(-1); setQ('') }}>By store</button>
-          <button className={view === 'prod' ? 'on' : ''} onClick={() => { setView('prod'); setSel(-1); setQ('') }}>By product</button>
-        </div>
-      </div>
-
+      {filterControls}
       <div className="picker">
-        <input value={q} onChange={e => { setQ(e.target.value); setSel(-1) }} placeholder={view === 'store' ? 'Search store name or ID' : 'Search product or item number'} />
+        <input value={q} onChange={e => { setQ(e.target.value); resetSel() }} placeholder={view === 'store' ? 'Search store name or ID' : 'Search product or item number'} />
         <select value={cur ? cur.i : ''} onChange={e => setSel(+e.target.value)}>
           {pickList.length === 0 && <option value="">No matches</option>}
-          {pickList.slice(0, 500).map(x => <option key={x.i} value={x.i}>
-            {view === 'store'
-              ? `${x.n} (${x.state}) · ${x.id}${x.rep ? ' · ' + x.rep : ''}${x.sun ? (x.sun[0] === 'pp' ? ' · SUN PP' : ' · Sun Hold') : ''}`
-              : `${x.r} · ${x.n}${x.ss ? ' · SS' : x.msl ? ' · MSL' : ''}${x.pp ? ' · PP' : ''}`}
-          </option>)}
+          {pickList.slice(0, 500).map(x => <option key={x.i} value={x.i}>{pickLabel(x)}</option>)}
         </select>
       </div>
       {cur && view === 'prod' && cur.rrp && <p className="meta">RRP ${cur.rrp.toFixed(2)} · GM {cur.gm}% · Metcash grading {cur.g} · {cur.rc} rank {cur.rank}</p>}
@@ -253,7 +298,93 @@ export default function Bnb() {
         <span className="dot pp" />sun prepack (that week) <span className="dot hold" />prepack on hold <span className="sep" />weekly after last report
         <button onClick={doExport} disabled={!shown.length}>Export call list (CSV)</button>
       </div>
-      <p className="foot">Each dot is a 26 week report: green means the store bought it at least once in the 26 weeks to that date. Lapsed = bought in an earlier report but not the latest. Sun prepack stores get SUN PP on the 6 prepack lines. Range tags from the Beiersdorf Metcash range book (July 2026).{data.notes?.team_missing?.length ? ` Not in any report yet: ${data.notes.team_missing.join(', ')}.` : ''}</p>
+      {foot}
+    </div>
+  )
+
+  /* ---------- phone / tablet: cards ---------- */
+  return (
+    <div className="m">
+      <header className="m-top">
+        <div className="m-row">
+          <div className="m-ttl">
+            <div className="m-name">{cur ? cur.n : 'No matches'}</div>
+            <div className="m-sub">{curSub}</div>
+          </div>
+          {themeBtn}
+        </div>
+        <button className="m-search" onClick={() => { setQ(''); setSheet('pick') }}><Icon name="search" />{view === 'store' ? 'Change store' : 'Change product'}</button>
+      </header>
+
+      <div className="chips">
+        {CHIPS.map(([v, t]) => <button key={v} className={'chip' + (rg === v ? ' on' : '')} onClick={() => setRg(v)}>{t}</button>)}
+        <button className={'chip' + (hideDel ? ' on' : '')} onClick={() => setHideDel(!hideDel)}>Hide deleted</button>
+      </div>
+
+      <div className="m-kpis">
+        {[['lap', 'Lapsed', c('lap')], ['nev', 'Never', c('nev')], ['buy', 'Buying', c('buy')], ['sun', 'Sun PP', c('hold') ? `${c('pp')}/${c('hold')}` : c('pp')]]
+          .map(([k, t, v]) => <button key={k} className={'m-kpi k-' + k + (flt === k ? ' on' : '')} onClick={() => setFlt(flt === k ? 'all' : k)}><b>{v}</b><span>{t}</span></button>)}
+      </div>
+      <div className="m-count">{flt === 'all' ? `${shown.length} lines` : `${shown.length} ${LABEL[flt === 'sun' ? 'pp' : flt].toLowerCase()} · tap again to clear`}</div>
+
+      <div className="cards">
+        {shown.slice(0, limit).map(l => {
+          const k = view === 'store' ? l.p.i : l.s.i
+          const isOpen = open === k
+          return (
+            <div key={k} className={'card' + (isOpen ? ' open' : '')} onClick={() => setOpen(isOpen ? null : k)}>
+              <div className="c-r1">
+                <div className="c-main">
+                  <div className="c-nm">{view === 'store' ? <>{tags(l.p)}{l.p.n}</> : l.s.n}</div>
+                  <div className="c-sub">{view === 'store' ? l.p.r : `${l.s.id} · ${l.s.state}${l.s.rep ? ' · ' + l.s.rep.split(' ')[0] : ''}`} · {lastLabel(l)}</div>
+                </div>
+                <span className={'pill ' + l.status}>{LABEL[l.status]}</span>
+              </div>
+              <div className="c-dots">{dots(l)}</div>
+              {isOpen && <div className="c-more">
+                {view === 'store'
+                  ? <>{l.p.rc ? `${l.p.rc} #${l.p.rank} · RRP $${l.p.rrp.toFixed(2)} · GM ${l.p.gm}% · Grade ${l.p.g}` : (l.p.c || 'Not in range book')}<br /></>
+                  : <>{l.s.b}{l.s.mso ? ' · ' + l.s.mso : ''} · store rank {l.s.rk === 99999 ? 'n/a' : l.s.rk}<br /></>}
+                Bought in {bits(l.mask)} of {bits(l.common)} reports
+                {view === 'prod' && <button className="c-link" onClick={e => { e.stopPropagation(); setView('store'); setSel(l.s.i); setFlt('all'); window.scrollTo(0, 0) }}>Open store</button>}
+              </div>}
+            </div>
+          )
+        })}
+        {shown.length === 0 && <p className="bnb-msg">No lines match these filters.</p>}
+      </div>
+      {shown.length > limit && <button className="more m-more" onClick={() => setLimit(limit + PAGE)}>Show more ({shown.length - limit} left)</button>}
+      <div className="m-pad">{foot}<a href="/" className="m-back">Back to pilot</a></div>
+
+      <nav className="tabs">
+        <button className={view === 'store' ? 'on' : ''} onClick={() => view === 'store' ? setSheet('pick') : switchView('store')}><Icon name="store" />Store</button>
+        <button className={view === 'prod' ? 'on' : ''} onClick={() => view === 'prod' ? setSheet('pick') : switchView('prod')}><Icon name="box" />Product</button>
+        <button className={sheet === 'filters' ? 'on' : ''} onClick={() => setSheet('filters')}><Icon name="sliders" />Filters</button>
+        <button onClick={doExport}><Icon name="download" />Export</button>
+      </nav>
+
+      {sheet && <div className="scrim" onClick={e => e.target === e.currentTarget && setSheet('')}>
+        <div className={'sheet' + (sheet === 'pick' ? ' tall' : '')}>
+          <div className="sh-hd">
+            <b>{sheet === 'pick' ? (view === 'store' ? 'Choose a store' : 'Choose a product') : 'Filters'}</b>
+            <button className="theme" onClick={() => setSheet('')} aria-label="Close"><Icon name="x" /></button>
+          </div>
+          {sheet === 'pick' ? <>
+            <input className="sh-q" value={q} onChange={e => setQ(e.target.value)} placeholder={view === 'store' ? 'Store name or ID' : 'Product or item number'} />
+            <div className="sh-list">
+              {pickList.slice(0, 200).map(x => (
+                <button key={x.i} className={'sh-item' + (cur && cur.i === x.i ? ' on' : '')} onClick={() => { setSel(x.i); setSheet(''); setFlt('all'); window.scrollTo(0, 0) }}>
+                  {view === 'store'
+                    ? <><b>{x.n}</b><small>{x.state} · {x.id}{x.rep ? ' · ' + x.rep : ''}{x.sun ? (x.sun[0] === 'pp' ? ' · SUN PP' : ' · Sun Hold') : ''}</small></>
+                    : <><b>{x.n}</b><small>{x.r}{x.ss ? ' · Sea Salt' : x.msl ? ' · MSL' : ''}{x.pp ? ' · Prepack' : ''}</small></>}
+                </button>
+              ))}
+              {pickList.length === 0 && <p className="bnb-msg">No matches. Check the state and rep filters.</p>}
+              {pickList.length > 200 && <p className="bnb-msg">Showing 200 of {pickList.length}. Type to narrow it down.</p>}
+            </div>
+          </> : <div className="sh-body">{filterControls}<button className="sh-done" onClick={() => setSheet('')}>Done</button></div>}
+        </div>
+      </div>}
     </div>
   )
 }
