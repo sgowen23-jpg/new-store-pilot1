@@ -254,7 +254,7 @@ export default function Bnb() {
           <h1>Beiersdorf buy / not buy history</h1>
           <p>{D.NB} reports, W/E {fmt(data.reports[0])} to {fmt(data.reports[D.NB - 1])}. Sun prepack orders to {fmt(data.built)}.</p>
         </div>
-        <div className="hdr-r">{themeBtn}<a href="/" className="back">Back to pilot</a></div>
+        <div className="hdr-r">{themeBtn}<a href="/#bnb" className="back">Back to pilot</a></div>
       </header>
       {filterControls}
       <div className="picker">
@@ -354,7 +354,7 @@ export default function Bnb() {
         {shown.length === 0 && <p className="bnb-msg">No lines match these filters.</p>}
       </div>
       {shown.length > limit && <button className="more m-more" onClick={() => setLimit(limit + PAGE)}>Show more ({shown.length - limit} left)</button>}
-      <div className="m-pad">{foot}<a href="/" className="m-back">Back to pilot</a></div>
+      <div className="m-pad">{foot}<a href="/#bnb" className="m-back">Back to pilot</a></div>
 
       <nav className="tabs">
         <button className={view === 'store' ? 'on' : ''} onClick={() => view === 'store' ? setSheet('pick') : switchView('store')}><Icon name="store" />Store</button>
