@@ -9,7 +9,7 @@ const pct = (a, b) => (b ? Math.round((a / b) * 100) : 0) + '%'
 /* ---------- projects on the home wheel (swipe left / right) ---------- */
 const PROJECTS = [
   { key: 'gsv', title: <>Team V GSV<br />Non Universe</>, tab: 'GSV Non Universe' },
-  { key: 'blitz', title: <>NSW Vitasoy<br />Blitz</>, tab: 'NSW Blitz' },
+  { key: 'bnb', title: <>Beiersdorf<br />Buy / Not Buy</>, tab: 'BDF Gap Report' },
 ]
 const BLITZ_DAYS = ['TUE', 'WED', 'THU']
 const DAY_NAMES = { TUE: 'Tuesday', WED: 'Wednesday', THU: 'Thursday' }
@@ -489,6 +489,10 @@ export default function App() {
   const dayListed = dayStores.filter(s => (mode === 'done') === !!s.visited)
   const dayHotel = dayStops.find(s => s.kind === 'hotel')
 
+  const openGapReport = (st) => {
+    try { localStorage.setItem('bnb.state', st) } catch { /* ignore */ }
+    window.location.href = '/bnb/'
+  }
   const openDay = (d) => { setCurDay(d); setMode('todo'); setPage('day'); refresh() }
   const openStop = (s) => { setCurStop(s); setPage('stop') }
   const onBlitzSaved = (id, row) => {
@@ -525,10 +529,10 @@ export default function App() {
           </>
           <>
             <div className="home-title">{PROJECTS[1].title}</div>
-            <StateWheel onPick={openDay} items={BLITZ_DAYS} />
+            <StateWheel onPick={openGapReport} />
             <div className="pct">
-              <b>{loading ? '...' : pct(towersSold, blitzTargets.length)}</b>
-              <small>{blitzErr || (loading ? 'Loading the blitz' : `${towersSold} of ${blitzTargets.length} towers sold · ${blitzVisited} of ${blitzStores.length} visited`)}</small>
+              <b>Gap report</b>
+              <small>Pick a state to open the buy / not buy history</small>
             </div>
           </>
         </ProjectWheel>
