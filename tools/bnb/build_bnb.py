@@ -153,6 +153,22 @@ for r in rows[1:]:
 for sid, c in cnt.items(): reps[sid] = c.most_common(1)[0][0]
 print('stores with rep', len(reps), Counter(reps.values()))
 
+# team store list (486 stores, matched by name to BNB store names)
+ALIAS = {'IGA LG LANG LANG': '9744', 'IGA M LLOYDS SOUTH HURSTVILLE': '18052', 'IGA M LLOYDS SPRINGWOOD': '6252',
+         'IGA M ROUSE HILL': '13949', 'IGA TUCKER FRESH DARCH': '52411'}
+norm = lambda x: re.sub(r'[^A-Z0-9]', '', x.upper())
+byname = {}
+for s_ in store_list: byname.setdefault(norm(s_['n']), s_['id'])
+team, team_missing = [], []
+list_path = sys.argv[5] if len(sys.argv) > 5 else None
+if list_path:
+    for ln in open(list_path):
+        nm = ln.split('\t')[0].strip()
+        if not nm: continue
+        sid = ALIAS.get(nm) or byname.get(norm(nm))
+        (team.append(sid) if sid else team_missing.append(nm))
+print('team list', len(team), 'matched,', len(team_missing), 'missing', team_missing)
+
 out = dict(
     built=today.isoformat(),
     reports=[d.isoformat() for d in dates],
@@ -162,7 +178,8 @@ out = dict(
     seenS=seenS, seenP=seenP,
     h=H,
     sun=sun,
-    notes=dict(unmatched_range=[u['name'] for u in unmatched], skipped_prepack=[f'{a} {b} ({c})' for a, b, c in skipped]),
+    team=team,
+    notes=dict(team_missing=team_missing, unmatched_range=[u['name'] for u in unmatched], skipped_prepack=[f'{a} {b} ({c})' for a, b, c in skipped]),
 )
 for p in out['products']: p.pop('del_', None)
 with open(out_path, 'w') as f: json.dump(out, f, separators=(',', ':'))

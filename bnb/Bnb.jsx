@@ -27,6 +27,7 @@ export default function Bnb() {
   const [data, setData] = useState(null)
   const [err, setErr] = useState('')
   const [view, setView] = useState('store')
+  const [scope, setScope] = useState('team')
   const [st, setSt] = useState('SA')
   const [rg, setRg] = useState('all')
   const [rep, setRep] = useState('')
@@ -57,7 +58,8 @@ export default function Bnb() {
     const reps = [...new Set(stores.map(s => s.rep).filter(Boolean))].sort()
     const banners = [...new Set(stores.map(s => s.b).filter(Boolean))].sort()
     const cats = [...new Set(products.map(p => p.rc || p.c).filter(Boolean))].sort()
-    return { NB, cols, stores, products, reps, banners, cats }
+    const team = new Set(data.team || [])
+    return { NB, cols, stores, products, reps, banners, cats, team }
   }, [data])
 
   // one store x product line
@@ -74,7 +76,7 @@ export default function Bnb() {
     return { s, p, mask, status, lastIdx, sunLine }
   }
 
-  const storeOk = s => (st === 'All' || s.state === st) && (!rep || s.rep === rep) && (!banner || s.b === banner) && (!activeOnly || s.active)
+  const storeOk = s => (scope !== 'team' || D.team.has(s.id)) && (st === 'All' || s.state === st) && (!rep || s.rep === rep) && (!banner || s.b === banner) && (!activeOnly || s.active)
   const prodOk = p => {
     if (rg === 'ss' && !p.ss) return false
     if (rg === 'msl' && !p.msl) return false
@@ -89,7 +91,7 @@ export default function Bnb() {
     const qq = q.trim().toLowerCase()
     if (view === 'store') return D.stores.filter(s => storeOk(s) && (!qq || s.n.toLowerCase().includes(qq) || s.id.includes(qq)))
     return D.products.filter(p => prodOk(p) && (!qq || p.n.toLowerCase().includes(qq) || p.r.includes(qq)))
-  }, [D, view, q, st, rep, banner, activeOnly, rg, cat, hideDel])
+  }, [D, view, q, scope, st, rep, banner, activeOnly, rg, cat, hideDel])
 
   const cur = pickList.find(x => x.i === sel) || pickList[0]
 
@@ -99,7 +101,7 @@ export default function Bnb() {
     if (view === 'store') { for (const p of D.products) if (prodOk(p)) { const l = line(cur, p); if (l) out.push(l) } }
     else { for (const s of D.stores) if (storeOk(s)) { const l = line(s, cur); if (l) out.push(l) } }
     return out
-  }, [D, cur, view, st, rep, banner, activeOnly, rg, cat, hideDel])
+  }, [D, cur, view, scope, st, rep, banner, activeOnly, rg, cat, hideDel])
 
   const shown = useMemo(() => {
     const f = lines.filter(l => flt === 'all' || (flt === 'sun' ? (l.status === 'pp' || l.status === 'hold') : l.status === flt))
@@ -175,6 +177,7 @@ export default function Bnb() {
         <a href="/" className="back">Back to pilot</a>
       </header>
 
+      <Seg label="Stores" items={[['team', `Your list (${D.team.size})`], ['all', 'All Metcash']]} value={scope} onChange={v => { setScope(v); setSel(-1) }} />
       <Seg label="State" items={STATES.map(s => [s, s])} value={st} onChange={v => { setSt(v); setSel(-1) }} />
       <Seg label="Range" items={RANGES} value={rg} onChange={setRg} />
 
@@ -250,7 +253,7 @@ export default function Bnb() {
         <span className="dot pp" />sun prepack (that week) <span className="dot hold" />prepack on hold <span className="sep" />weekly after last report
         <button onClick={doExport} disabled={!shown.length}>Export call list (CSV)</button>
       </div>
-      <p className="foot">Each dot is a 26 week report: green means the store bought it at least once in the 26 weeks to that date. Lapsed = bought in an earlier report but not the latest. Sun prepack stores get SUN PP on the 6 prepack lines. Range tags from the Beiersdorf Metcash range book (July 2026).</p>
+      <p className="foot">Each dot is a 26 week report: green means the store bought it at least once in the 26 weeks to that date. Lapsed = bought in an earlier report but not the latest. Sun prepack stores get SUN PP on the 6 prepack lines. Range tags from the Beiersdorf Metcash range book (July 2026).{data.notes?.team_missing?.length ? ` Not in any report yet: ${data.notes.team_missing.join(', ')}.` : ''}</p>
     </div>
   )
 }
