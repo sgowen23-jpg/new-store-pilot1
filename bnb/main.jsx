@@ -8,3 +8,7 @@ createRoot(document.getElementById('root')).render(
     <Bnb />
   </React.StrictMode>
 )
+
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => navigator.serviceWorker.register('/bnb/sw.js', { scope: '/bnb/' }).catch(() => {}))
+}
