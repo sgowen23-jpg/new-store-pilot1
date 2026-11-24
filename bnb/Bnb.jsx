@@ -142,6 +142,7 @@ export default function Bnb() {
     const out = []
     for (const p of pickList) {
       if (!((p.seen >> (D.NB - 1)) & 1)) continue // not in the latest report
+      if (p.ppk) continue // the prepack tower itself is not a line to range
       const c = { buy: 0, lap: 0, nev: 0, pp: 0, hold: 0 }
       for (const s of stores) { const l = line(s, p); if (l) c[l.status]++ }
       const t = c.buy + c.lap + c.nev + c.pp + c.hold
