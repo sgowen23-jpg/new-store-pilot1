@@ -1,4 +1,5 @@
 {
+  "id": "/bnb/",
   "name": "GAPS",
   "short_name": "GAPS",
   "description": "Beiersdorf buy / not buy history",
@@ -8,8 +9,23 @@
   "background_color": "#0E4A5C",
   "theme_color": "#0E4A5C",
   "icons": [
-    { "src": "/bnb/gaps-192.png", "sizes": "192x192", "type": "image/png" },
-    { "src": "/bnb/gaps-512.png", "sizes": "512x512", "type": "image/png" },
-    { "src": "/bnb/gaps-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+    {
+      "src": "/bnb/gaps-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/bnb/gaps-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/bnb/gaps-maskable-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
   ]
 }
