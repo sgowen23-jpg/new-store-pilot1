@@ -79,7 +79,7 @@ export default function Bnb() {
   useEffect(() => {
     document.documentElement.dataset.theme = dark ? 'dark' : 'light'
     store.set('bnb.theme', dark ? 'dark' : 'light')
-    const m = document.querySelector('meta[name=theme-color]'); if (m) m.content = dark ? '#08222a' : '#0E4A5C'
+    const m = document.querySelector('meta[name=theme-color]'); if (m) m.content = '#0E4A5C'
   }, [dark])
   useEffect(() => { store.set('bnb.state', st) }, [st])
   useEffect(() => { store.set('bnb.rep', rep) }, [rep])
