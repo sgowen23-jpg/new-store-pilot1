@@ -1,0 +1,31 @@
+{
+  "id": "/",
+  "name": "Team V",
+  "short_name": "Team V",
+  "description": "Team V GSV Non Universe and BDF Gap Report",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#0E4A5C",
+  "theme_color": "#0E4A5C",
+  "icons": [
+    {
+      "src": "/teamv-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/teamv-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/teamv-maskable-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
+  ]
+}

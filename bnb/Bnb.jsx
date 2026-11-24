@@ -86,6 +86,18 @@ export default function Bnb() {
   useEffect(() => { store.set('bnb.state', st) }, [st])
   useEffect(() => { store.set('bnb.rep', rep) }, [rep])
 
+  // install as an app
+  const [installEvt, setInstallEvt] = useState(null)
+  const [installHelp, setInstallHelp] = useState(false)
+  const [installHidden, setInstallHidden] = useState(() => store.get('bnb.installHidden') === '1')
+  useEffect(() => {
+    const onPrompt = e => { e.preventDefault(); setInstallEvt(e) }
+    const onDone = () => { setInstallEvt(null); setInstallHidden(true) }
+    window.addEventListener('beforeinstallprompt', onPrompt)
+    window.addEventListener('appinstalled', onDone)
+    return () => { window.removeEventListener('beforeinstallprompt', onPrompt); window.removeEventListener('appinstalled', onDone) }
+  }, [])
+
   const D = useMemo(() => {
     if (!data) return null
     const NB = data.reports.length
@@ -300,6 +312,39 @@ export default function Bnb() {
     </div>
   </>
   const foot = <p className="foot">Each dot is a 26 week report: green means the store bought it at least once in the 26 weeks to that date. Lapsed = bought in an earlier report but not the latest. Sun prepack stores get SUN PP on the 6 prepack lines. Range tags from the Beiersdorf Metcash range book (July 2026).{data.notes?.team_missing?.length ? ` Not in any report yet: ${data.notes.team_missing.join(', ')}.` : ''}</p>
+  const ua = navigator.userAgent || ''
+  const standalone = window.matchMedia?.('(display-mode: standalone)').matches || navigator.standalone === true
+  const isIOS = /iphone|ipad|ipod/i.test(ua) || (/Macintosh/.test(ua) && navigator.maxTouchPoints > 1)
+  const inApp = /FBAN|FBAV|Instagram|Messenger|LinkedInApp|GSA\/|Line\//i.test(ua)
+  const doInstall = async () => {
+    if (installEvt) { installEvt.prompt(); const r = await installEvt.userChoice.catch(() => null); if (r?.outcome === 'accepted') setInstallHidden(true); setInstallEvt(null) }
+    else setInstallHelp(true)
+  }
+  const hideInstall = () => { setInstallHidden(true); store.set('bnb.installHidden', '1') }
+  const installSteps = isIOS
+    ? <>In <b>Safari</b>, tap <b>Share</b> (the square with the arrow), scroll down and tap <b>Add to Home Screen</b>, then <b>Add</b>.{!/Safari/.test(ua) || /CriOS|FxiOS|EdgiOS/.test(ua) ? <> If you're not in Safari, open this page in Safari first.</> : null}</>
+    : inApp
+      ? <>This page is open inside another app. Tap <b>⋮</b> or <b>…</b> and choose <b>Open in Chrome</b> (or your browser), then install from there.</>
+      : <>In <b>Chrome</b>, tap <b>⋮</b> (top right), then <b>Install app</b> or <b>Add to Home screen</b>. On a PC, click the install icon at the right of the address bar.</>
+  const installBanner = !standalone && !installHidden && (installEvt || isIOS || inApp) && (
+    <div className="inst">
+      <img src="/bnb/gaps-64.png" alt="" width="36" height="36" />
+      <div className="inst-t"><b>Install GAPS</b><span>{installEvt ? 'Open it like an app, full screen.' : isIOS ? 'Add it to your home screen.' : 'Open in your browser to install.'}</span></div>
+      <button className="inst-go" onClick={doInstall}>{installEvt ? 'Install' : 'How'}</button>
+      <button className="inst-x" onClick={hideInstall} aria-label="Hide"><Icon name="x" /></button>
+    </div>
+  )
+  const installSheet = installHelp && (
+    <div className="scrim" onClick={e => e.target === e.currentTarget && setInstallHelp(false)}>
+      <div className="sheet">
+        <div className="sh-hd"><b>Install GAPS</b><button className="theme" onClick={() => setInstallHelp(false)} aria-label="Close"><Icon name="x" /></button></div>
+        <p className="inst-steps">{installSteps}</p>
+        <p className="inst-steps muted">It shows up on your home screen as <b>GAPS</b> and opens full screen.</p>
+        <button className="sh-done" onClick={() => setInstallHelp(false)}>Got it</button>
+      </div>
+    </div>
+  )
+  const installBtn = !standalone && <button className="inst-link" onClick={doInstall}>Install GAPS as an app</button>
   const themeBtn = <button className="theme" onClick={() => setDark(!dark)} aria-label={dark ? 'Switch to day mode' : 'Switch to night mode'}><Icon name={dark ? 'sun' : 'moon'} /></button>
 
   /* ---------- PC: table ---------- */
@@ -312,6 +357,7 @@ export default function Bnb() {
         </div>
         <div className="hdr-r">{themeBtn}<a href="/#bnb" className="back">Back to pilot</a></div>
       </header>
+      {installBanner}
       {filterControls}
       <div className="picker">
         <input value={q} onChange={e => { setQ(e.target.value); resetSel() }} placeholder={view === 'store' ? 'Search store name or ID' : 'Search product or item number'} />
@@ -359,6 +405,8 @@ export default function Bnb() {
       </div>
       </>}
       {foot}
+      {installBtn}
+      {installSheet}
     </div>
   )
 
@@ -377,6 +425,7 @@ export default function Bnb() {
         <button className="m-search" onClick={() => { setQ(''); setSheet('pick') }}><Icon name="search" />{view === 'store' ? 'Change store' : ranking ? 'Find a product' : 'Change product'}</button>
       </header>
 
+      {installBanner}
       <div className="chips">
         {CHIPS.map(([v, t]) => <button key={v} className={'chip' + (rg === v ? ' on' : '')} onClick={() => setRg(v)}>{t}</button>)}
         <button className={'chip' + (hideDel ? ' on' : '')} onClick={() => setHideDel(!hideDel)}>Hide deleted</button>
@@ -417,7 +466,8 @@ export default function Bnb() {
       </div>
       {shown.length > limit && <button className="more m-more" onClick={() => setLimit(limit + PAGE)}>Show more ({shown.length - limit} left)</button>}
       </>}
-      <div className="m-pad">{foot}<a href="/#bnb" className="m-back">Back to pilot</a></div>
+      {installSheet}
+      <div className="m-pad">{foot}{installBtn}<a href="/#bnb" className="m-back">Back to pilot</a></div>
 
       <nav className="tabs">
         <button className={view === 'store' ? 'on' : ''} onClick={() => view === 'store' ? setSheet('pick') : switchView('store')}><Icon name="store" />Store</button>
@@ -445,7 +495,7 @@ export default function Bnb() {
               {pickList.length === 0 && <p className="bnb-msg">No matches. Check the state and rep filters.</p>}
               {pickList.length > 200 && <p className="bnb-msg">Showing 200 of {pickList.length}. Type to narrow it down.</p>}
             </div>
-          </> : <div className="sh-body">{filterControls}<button className="sh-done" onClick={() => setSheet('')}>Done</button></div>}
+          </> : <div className="sh-body">{filterControls}{installBtn}<button className="sh-done" onClick={() => setSheet('')}>Done</button></div>}
         </div>
       </div>}
     </div>
