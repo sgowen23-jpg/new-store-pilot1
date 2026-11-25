@@ -86,6 +86,7 @@ export default function Bnb() {
   const [hiddenG, setHiddenG] = useState(() => { try { return JSON.parse(store.get('bnb.hideGroups') || '["romeo","ritchies"]') } catch { return [] } })
   const [countLap, setCountLap] = useState(() => store.get('bnb.countLap') !== '0')
   const [sumM, setSumM] = useState('ss')
+  const [area, setArea] = useState(() => store.get('bnb.area') || '')
   const hk = hiddenG.join(',')
   const width = useWidth()
   const wide = width >= WIDE
@@ -102,6 +103,7 @@ export default function Bnb() {
   useEffect(() => { store.set('bnb.state', st) }, [st])
   useEffect(() => { store.set('bnb.rep', rep) }, [rep])
   useEffect(() => { store.set('bnb.hideGroups', JSON.stringify(hiddenG)) }, [hk])
+  useEffect(() => { store.set('bnb.area', area) }, [area])
   useEffect(() => { store.set('bnb.countLap', countLap ? '1' : '0') }, [countLap])
   const toggleGroup = g => setHiddenG(h => h.includes(g) ? h.filter(x => x !== g) : [...h, g])
 
@@ -109,8 +111,8 @@ export default function Bnb() {
     if (!data) return null
     const NB = data.reports.length
     const cols = data.reports.concat(data.ext)
-    const stores = data.stores.map(([id, n, state, b, mso, rk, rp, mg], i) => ({
-      i, id, n, N: n.toUpperCase(), state, b, mso, mg: mg || '', rk: rk ? +rk : 99999, rep: rp,
+    const stores = data.stores.map(([id, n, state, b, mso, rk, rp, mg, mt], i) => ({
+      i, id, n, N: n.toUpperCase(), state, b, mso, mg: mg || '', metro: !!mt, rk: rk ? +rk : 99999, rep: rp,
       seen: data.seenS[i], active: data.act ? data.act[i] : (data.seenS[i] >> (NB - 1)) & 1, sun: data.sun[id] || null,
     }))
     const products = data.products.map((p, i) => ({ ...p, i, seen: data.seenP[i] }))
@@ -135,7 +137,7 @@ export default function Bnb() {
     return { s, p, mask, common, status, lastIdx: highBit(mask), sunLine }
   }
 
-  const baseOk = s => (scope !== 'team' || D.team.has(s.id)) && (!rep || s.rep === rep) && (!banner || s.b === banner) && (!activeOnly || s.active) && !s.groups.some(g => hiddenG.includes(g))
+  const baseOk = s => (scope !== 'team' || D.team.has(s.id)) && (!rep || s.rep === rep) && (!banner || s.b === banner) && (!activeOnly || s.active) && !s.groups.some(g => hiddenG.includes(g)) && (!area || (area === 'm') === s.metro)
   const storeOk = s => baseOk(s) && (st === 'All' || s.state === st)
   const isGap = status => status === 'nev' || (countLap && status === 'lap')
   const prodOk = p => {
@@ -153,7 +155,7 @@ export default function Bnb() {
     const qq = q.trim().toLowerCase()
     if (view === 'store') return D.stores.filter(s => storeOk(s) && (!qq || s.n.toLowerCase().includes(qq) || s.id.includes(qq)))
     return D.products.filter(p => prodOk(p) && (!qq || p.n.toLowerCase().includes(qq) || p.r.includes(qq)))
-  }, [D, view, q, scope, st, rep, banner, activeOnly, hk, countLap, rg, cat, hideDel])
+  }, [D, view, q, scope, st, rep, banner, activeOnly, hk, area, countLap, rg, cat, hideDel])
 
   const cur = !D ? null : view === 'prod' ? (sel >= 0 ? D.products[sel] : null) : (sel >= 0 ? D.stores[sel] : pickList[0])
   const ranking = view === 'prod' && !cur
@@ -172,8 +174,8 @@ export default function Bnb() {
       if (t) out.push({ p, c, t, g: c.nev + (countLap ? c.lap : 0) })
     }
     return out.sort((a, b) => worst ? b.g - a.g || b.c.nev - a.c.nev : a.g - b.g || a.c.nev - b.c.nev)
-  }, [D, view, pickList, worst, scope, st, rep, banner, activeOnly, hk, countLap])
-  const storeCount = useMemo(() => (D ? D.stores.filter(storeOk).length : 0), [D, scope, st, rep, banner, activeOnly, hk, countLap])
+  }, [D, view, pickList, worst, scope, st, rep, banner, activeOnly, hk, area, countLap])
+  const storeCount = useMemo(() => (D ? D.stores.filter(storeOk).length : 0), [D, scope, st, rep, banner, activeOnly, hk, area, countLap])
 
   // summary: gaps per state for Sea Salt, MSL and all lines (state filter ignored here)
   const summary = useMemo(() => {
@@ -182,18 +184,19 @@ export default function Bnb() {
     const by = {}
     for (const s of D.stores) {
       if (!baseOk(s)) continue
-      const r = by[s.state] || (by[s.state] = { stores: 0, all: [0, 0], ss: [0, 0], msl: [0, 0] })
+      const r = by[s.state] || (by[s.state] = { stores: 0, all: [0, 0], ss: [0, 0], msl: [0, 0], m: { n: 0, all: [0, 0], ss: [0, 0], msl: [0, 0] }, c: { n: 0, all: [0, 0], ss: [0, 0], msl: [0, 0] } })
       r.stores++
+      const z = s.metro ? r.m : r.c; z.n++
       for (const p of prods) {
         const l = line(s, p)
         if (!l || !(l.status === 'nev' || l.status === 'lap')) continue
         const k = l.status === 'nev' ? 0 : 1
-        r.all[k]++; if (p.ss) r.ss[k]++; if (p.msl) r.msl[k]++
+        r.all[k]++; z.all[k]++; if (p.ss) { r.ss[k]++; z.ss[k]++ } if (p.msl) { r.msl[k]++; z.msl[k]++ }
       }
     }
     const lines = { all: prods.length, ss: prods.filter(p => p.ss).length, msl: prods.filter(p => p.msl).length }
     return { by, lines }
-  }, [D, view, scope, rep, banner, activeOnly, hk])
+  }, [D, view, scope, rep, banner, activeOnly, hk, area])
 
   const lines = useMemo(() => {
     if (!D || !cur || view === 'sum') return []
@@ -201,7 +204,7 @@ export default function Bnb() {
     if (view === 'store') { for (const p of D.products) if (prodOk(p)) { const l = line(cur, p); if (l) out.push(l) } }
     else { for (const s of D.stores) if (storeOk(s)) { const l = line(s, cur); if (l) out.push(l) } }
     return out
-  }, [D, cur, view, scope, st, rep, banner, activeOnly, hk, countLap, rg, cat, hideDel])
+  }, [D, cur, view, scope, st, rep, banner, activeOnly, hk, area, countLap, rg, cat, hideDel])
 
   const shown = useMemo(() => {
     const f = lines.filter(l => flt === 'all' || (flt === 'sun' ? (l.status === 'pp' || l.status === 'hold') : l.status === flt))
@@ -253,16 +256,18 @@ export default function Bnb() {
     ? `${x.n} (${x.state}) · ${x.id}${x.rep ? ' · ' + x.rep : ''}${x.sun ? (x.sun[0] === 'pp' ? ' · SUN PP' : ' · Sun Hold') : ''}`
     : `${x.r} · ${x.n}${x.ss ? ' · SS' : x.msl ? ' · MSL' : ''}${x.pp ? ' · PP' : ''}`
   const curSub = !cur ? '' : view === 'store'
-    ? `${cur.state} · ${cur.id}${cur.rep ? ' · ' + cur.rep.split(' ')[0] : ''}${cur.sun ? ` · ${cur.sun[0] === 'pp' ? 'SUN PP' : 'Sun Hold'} ${fmt(cur.sun[1]).slice(0, 5)}` : ''}`
+    ? `${cur.state} ${cur.metro ? "Metro" : "Country"} · ${cur.id}${cur.rep ? ' · ' + cur.rep.split(' ')[0] : ''}${cur.sun ? ` · ${cur.sun[0] === 'pp' ? 'SUN PP' : 'Sun Hold'} ${fmt(cur.sun[1]).slice(0, 5)}` : ''}`
     : `${cur.r}${cur.rrp ? ` · RRP $${cur.rrp.toFixed(2)} · GM ${cur.gm}%` : ''}${cur.ss ? ' · Sea Salt' : cur.msl ? ' · MSL' : ''}`
 
   const doExport = () => {
     if (view === 'sum') {
       if (!summary) return
       const head = ['State', 'Stores', 'Sea Salt never', 'Sea Salt lapsed', 'MSL never', 'MSL lapsed', 'All never', 'All lapsed']
-      const rows = Object.entries(summary.by).map(([k, r]) => [k, r.stores, r.ss[0], r.ss[1], r.msl[0], r.msl[1], r.all[0], r.all[1]])
+      const head2 = ['State', 'Area', ...head.slice(1)]
+      const rows = Object.entries(summary.by).flatMap(([k, r]) => [['m', 'Metro'], ['c', 'Country']].filter(([a]) => r[a].n)
+        .map(([a, t]) => { const z = r[a]; return [k, t, z.n, z.ss[0], z.ss[1], z.msl[0], z.msl[1], z.all[0], z.all[1]] }))
       const hid = GROUPS.filter(([k]) => hiddenG.includes(k)).map(([, t]) => t).join(' ')
-      download(`gaps_summary_${data.built}${hid ? '_excl_' + hid.replace(/[^a-z0-9]+/gi, '_') : ''}.csv`, csv([head, ...rows]))
+      download(`gaps_summary_${data.built}${hid ? '_excl_' + hid.replace(/[^a-z0-9]+/gi, '_') : ''}.csv`, csv([head2, ...rows]))
       return
     }
     if (ranking) {
@@ -275,10 +280,10 @@ export default function Bnb() {
     if (!shown.length) return
     const head = view === 'store'
       ? ['Store', 'Store ID', 'State', 'Item no.', 'Product', 'Range', 'Rank', 'Status', 'Last bought']
-      : ['Product', 'Item no.', 'Store', 'Store ID', 'State', 'Rep', 'Status', 'Last bought']
+      : ['Product', 'Item no.', 'Store', 'Store ID', 'State', 'Area', 'Rep', 'Status', 'Last bought']
     const rows = shown.map(l => view === 'store'
       ? [cur.n, cur.id, cur.state, l.p.r, l.p.n, l.p.ss ? 'Sea Salt' : l.p.msl ? 'MSL' : '', l.p.rank || '', LABEL[l.status], lastLabel(l)]
-      : [cur.n, cur.r, l.s.n, l.s.id, l.s.state, l.s.rep, LABEL[l.status], lastLabel(l)])
+      : [cur.n, cur.r, l.s.n, l.s.id, l.s.state, l.s.metro ? 'Metro' : 'Country', l.s.rep, LABEL[l.status], lastLabel(l)])
     const who = (view === 'store' ? cur.n : cur.r).replace(/[^a-z0-9]+/gi, '_')
     download(`bnb_${who}_${data.built}.csv`, csv([head, ...rows]))
   }
@@ -325,6 +330,7 @@ export default function Bnb() {
     {GROUPS.map(([k, t]) => <button key={k} className={hiddenG.includes(k) ? 'off' : 'on'} onClick={() => toggleGroup(k)} title={hiddenG.includes(k) ? 'Hidden: tap to show' : 'Shown: tap to hide'}>{t}</button>)}
     {hiddenG.length > 0 && <button className="grp-clear" onClick={() => setHiddenG([])}>Show all</button>}
   </div>
+  const areaSeg = <div className="seg-row"><span className="seg-lbl">Area</span>{[['', 'All'], ['m', 'Metro'], ['c', 'Country']].map(([v, t]) => <button key={v} className={area === v ? 'on' : ''} onClick={() => { setArea(v); resetSel() }}>{t}</button>)}</div>
   const summaryView = summary && (() => {
     const rows = Object.entries(summary.by).map(([k, r]) => ({ k, r, g: gapsOf(r[sumM]), per: gapsOf(r[sumM]) / r.stores }))
       .filter(x => x.r.stores).sort((a, b) => b.per - a.per)
@@ -342,6 +348,7 @@ export default function Bnb() {
         return <button key={x.k} className="sum-row" onClick={() => openState(x.k)}>
           <b className="sum-st">{x.k}</b>
           <span className="sum-main"><span className="rk-sub">{x.r.stores} stores · {x.per.toFixed(1)} per store · {a[0]} never{countLap ? ` · ${a[1]} lapsed` : ''}</span>
+            {!area && <span className="rk-sub sum-mc">Metro {gapsOf(x.r.m[sumM]).toLocaleString()} ({x.r.m.n} stores) · Country {gapsOf(x.r.c[sumM]).toLocaleString()} ({x.r.c.n} stores)</span>}
             <span className="stk"><i className="s-nev" style={{ width: (100 * a[0] / cap).toFixed(1) + '%' }} />{countLap && <i className="s-lap" style={{ width: (100 * a[1] / cap).toFixed(1) + '%' }} />}</span></span>
           <span className={'rk-g ' + gapCls(x.per * 97 / n)}><b>{x.g.toLocaleString()}</b><small>gaps</small></span>
         </button>
@@ -358,6 +365,7 @@ export default function Bnb() {
   const filterControls = <>
     <Seg label="Stores" items={[['team', `Your list (${D.team.size})`], ['all', 'All Metcash']]} value={scope} onChange={v => { setScope(v); resetSel() }} />
     {groupChips}
+    {areaSeg}
     {view !== 'sum' && <Seg label="State" items={STATES.map(s => [s, s])} value={st} onChange={v => { setSt(v); resetSel() }} />}
     {wide && <Seg label="Range" items={RANGES} value={rg} onChange={setRg} />}
     <div className="ctrls">
@@ -469,7 +477,7 @@ export default function Bnb() {
         {view !== 'sum' && <button className="m-search" onClick={() => { setQ(''); setSheet('pick') }}><Icon name="search" />{view === 'store' ? 'Change store' : ranking ? 'Find a product' : 'Change product'}</button>}
       </header>
 
-      {view === 'sum' ? <div className="m-sum">{groupChips}{lapSwitch}{summaryView}</div> : <>
+      {view === 'sum' ? <div className="m-sum">{groupChips}{areaSeg}{lapSwitch}{summaryView}</div> : <>
       <div className="chips">
         {CHIPS.map(([v, t]) => <button key={v} className={'chip' + (rg === v ? ' on' : '')} onClick={() => setRg(v)}>{t}</button>)}
         <button className={'chip' + (hideDel ? ' on' : '')} onClick={() => setHideDel(!hideDel)}>Hide deleted</button>

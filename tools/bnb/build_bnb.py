@@ -118,6 +118,11 @@ if os.path.exists(MSO_PATH):
     for ln in open(MSO_PATH):
         nm, grp, *_ = ln.rstrip('\n').split('\t')
         msomap[re.sub(r'[^A-Z0-9]', '', nm.upper())] = grp.strip()
+METRO = set()
+_mp = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'metro_stores.tsv')
+if os.path.exists(_mp):
+    METRO = {l.split('\t')[0] for l in open(_mp) if l.strip() and not l.startswith('#')}
+
 def mso_of(name):
     g = msomap.get(re.sub(r'[^A-Z0-9]', '', name.upper()))
     if g and g != '-': return g
@@ -225,7 +230,7 @@ out = dict(
     reports=[d.isoformat() for d in dates],
     ext=[d.isoformat() for d in ext],
     products=[{k: v for k, v in p.items() if k not in ('last',) and v not in (None, False, '')} | ({'del': True} if p['del_'] else {}) for p in prod_list],
-    stores=[[s['id'], s['n'], s['st'], s['b'], s['mso'], s['rk'], reps.get(s['id'], ''), mso_of(s['n'])] for s in store_list],
+    stores=[[s['id'], s['n'], s['st'], s['b'], s['mso'], s['rk'], reps.get(s['id'], ''), mso_of(s['n']), 1 if str(s['id']) in METRO else 0] for s in store_list],
     seenS=seenS, seenP=seenP,
     act=[1 if (m >> (len(dates) - 1)) & 1 or (m >> (len(dates) - 2)) & 1 else 0 for m in seenS],
     h=H,
