@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react'
+import React, { useEffect, useMemo, useRef, useState } from 'react'
 
 const STATES = ['All', 'SA', 'WA', 'NSW', 'QLD', 'VIC', 'Other']
 const RANGES = [['all', 'All lines'], ['ss', 'Sea Salt'], ['msl', 'MSL incl. Sea Salt'], ['pp', 'Sun prepack 6']]
@@ -40,6 +40,24 @@ function download(name, text) {
   a.click()
   setTimeout(() => URL.revokeObjectURL(a.href), 1000)
 }
+// dropdown with tick items; closes on outside tap
+function Drop({ label, children }) {
+  const [o, setO] = useState(false)
+  const ref = useRef(null)
+  useEffect(() => {
+    if (!o) return
+    const f = e => { if (ref.current && !ref.current.contains(e.target)) setO(false) }
+    document.addEventListener('pointerdown', f)
+    return () => document.removeEventListener('pointerdown', f)
+  }, [o])
+  return <div className="dd" ref={ref}>
+    <button className={'dd-btn' + (o ? ' on' : '')} onClick={() => setO(!o)}>{label}<span className="dd-car">▾</span></button>
+    {o && <div className="dd-menu">{children}</div>}
+  </div>
+}
+const Tick = ({ on, onClick, children, sub, disabled }) => <button className={'dd-item' + (disabled ? ' dis' : '')} onClick={disabled ? undefined : onClick}>
+  <span className={'tick' + (on ? ' on' : '')}>{on ? '✓' : ''}</span><span>{children}{sub && <small>{sub}</small>}</span></button>
+
 function useWidth() {
   const [w, setW] = useState(() => window.innerWidth)
   useEffect(() => { const f = () => setW(window.innerWidth); window.addEventListener('resize', f); return () => window.removeEventListener('resize', f) }, [])
@@ -330,6 +348,18 @@ export default function Bnb() {
     {GROUPS.map(([k, t]) => <button key={k} className={hiddenG.includes(k) ? 'off' : 'on'} onClick={() => toggleGroup(k)} title={hiddenG.includes(k) ? 'Hidden: tap to show' : 'Shown: tap to hide'}>{t}</button>)}
     {hiddenG.length > 0 && <button className="grp-clear" onClick={() => setHiddenG([])}>Show all</button>}
   </div>
+  const shownG = GROUPS.length - hiddenG.length
+  const groupDrop = <Drop label={<span>Groups <b>{shownG === GROUPS.length ? 'All' : `${shownG} of ${GROUPS.length}`}</b></span>}>
+    {GROUPS.map(([k, t]) => <Tick key={k} on={!hiddenG.includes(k)} onClick={() => { toggleGroup(k); resetSel() }}>{t}</Tick>)}
+    <div className="dd-foot"><button onClick={() => setHiddenG([])}>Tick all</button><button onClick={() => setHiddenG(['romeo', 'ritchies'])}>Hide Romeo's & Ritchies</button></div>
+  </Drop>
+  const optDrop = <Drop label="Options">
+    <Tick on={hideDel} onClick={() => setHideDel(!hideDel)}>Hide deleted items</Tick>
+    <Tick on={activeOnly} onClick={() => { setActiveOnly(!activeOnly); resetSel() }}>Current stores only</Tick>
+    <Tick on={countLap} onClick={() => setCountLap(!countLap)} sub="Off: only Never counts">Count lapsed as gaps</Tick>
+    <Tick on={area !== 'c'} disabled={area === 'm'} onClick={() => { setArea(area === '' ? 'c' : ''); resetSel() }}>Metro stores</Tick>
+    <Tick on={area !== 'm'} disabled={area === 'c'} onClick={() => { setArea(area === '' ? 'm' : ''); resetSel() }}>Country stores</Tick>
+  </Drop>
   const areaSeg = <div className="seg-row"><span className="seg-lbl">Area</span>{[['', 'All'], ['m', 'Metro'], ['c', 'Country']].map(([v, t]) => <button key={v} className={area === v ? 'on' : ''} onClick={() => { setArea(v); resetSel() }}>{t}</button>)}</div>
   const summaryView = summary && (() => {
     const rows = Object.entries(summary.by).map(([k, r]) => ({ k, r, g: gapsOf(r[sumM]), per: gapsOf(r[sumM]) / r.stores }))
@@ -364,8 +394,6 @@ export default function Bnb() {
   )
   const filterControls = <>
     <Seg label="Stores" items={[['team', `Your list (${D.team.size})`], ['all', 'All Metcash']]} value={scope} onChange={v => { setScope(v); resetSel() }} />
-    {groupChips}
-    {areaSeg}
     {view !== 'sum' && <Seg label="State" items={STATES.map(s => [s, s])} value={st} onChange={v => { setSt(v); resetSel() }} />}
     {wide && <Seg label="Range" items={RANGES} value={rg} onChange={setRg} />}
     <div className="ctrls">
@@ -387,9 +415,8 @@ export default function Bnb() {
         <option value="az">Sort: A to Z</option>
         <option value="num">Sort: {view === 'store' ? 'item number' : 'store ID'}</option>
       </select>
-      <label><input type="checkbox" checked={hideDel} onChange={e => setHideDel(e.target.checked)} /> Hide deleted items</label>
-      <label><input type="checkbox" checked={activeOnly} onChange={e => { setActiveOnly(e.target.checked); resetSel() }} /> Current stores only</label>
-      <label><input type="checkbox" checked={countLap} onChange={e => setCountLap(e.target.checked)} /> Count lapsed as gaps</label>
+      {groupDrop}
+      {optDrop}
       {wide && <div className="view">
         <button className={view === 'store' ? 'on' : ''} onClick={() => switchView('store')}>By store</button>
         <button className={view === 'prod' ? 'on' : ''} onClick={() => switchView('prod')}>By product</button>
@@ -477,7 +504,7 @@ export default function Bnb() {
         {view !== 'sum' && <button className="m-search" onClick={() => { setQ(''); setSheet('pick') }}><Icon name="search" />{view === 'store' ? 'Change store' : ranking ? 'Find a product' : 'Change product'}</button>}
       </header>
 
-      {view === 'sum' ? <div className="m-sum">{groupChips}{areaSeg}{lapSwitch}{summaryView}</div> : <>
+      {view === 'sum' ? <div className="m-sum"><div className="ctrls m-dd">{groupDrop}{optDrop}</div>{summaryView}</div> : <>
       <div className="chips">
         {CHIPS.map(([v, t]) => <button key={v} className={'chip' + (rg === v ? ' on' : '')} onClick={() => setRg(v)}>{t}</button>)}
         <button className={'chip' + (hideDel ? ' on' : '')} onClick={() => setHideDel(!hideDel)}>Hide deleted</button>
