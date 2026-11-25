@@ -117,8 +117,11 @@ EXCLUDE = {'560241', '363092',
            '435700', '718551',            # Men Shave Gel Moist 200ml, Sun Pro Sensitive 100ml: deleted
            '303217', '465331', '356969'}  # older deletions still in report history
 # kept on purpose: 700464 NIVEA SUN 2025 (last season's tower, useful for reference)
-for p in prod_list:
-    if p['r'] in EXCLUDE: p['hide'] = True
+# rule (Sam): a line that isn't on the latest report has been deleted
+KEEP = {'700464', '540259'}  # NIVEA SUN 2025 tower kept for reference; 2026 sun prepack code
+latest_bit = 1 << (len(dates) - 1)
+for i, p in enumerate(prod_list):
+    if p['r'] in EXCLUDE or (not (seenP[i] & latest_bit) and p['r'] not in KEEP): p['hide'] = True
 print('range book matched', matched, 'unmatched', len(unmatched))
 for u in unmatched: print('   no BNB match:', u['metcode'], u['ean'], u['name'])
 for code in onepager.PREPACK + [onepager.PREPACK_CODE]:
