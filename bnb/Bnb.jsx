@@ -6,6 +6,17 @@ const CHIPS = [['ss', 'Sea Salt'], ['msl', 'MSL'], ['all', 'All lines'], ['pp', 
 const LABEL = { buy: 'Buying', lap: 'Lapsed', nev: 'Never', pp: 'SUN PP', hold: 'Sun Hold' }
 const STATUS_ORDER = { nev: 0, lap: 1, hold: 2, buy: 3, pp: 4 }
 const PAGE = 300
+// store groups you can switch off (a store is hidden if any of its groups is off)
+const GROUPS = [
+  ['drakes', 'Drakes', s => /DRAKES/.test(s.N)],
+  ['romeo', "Romeo's", s => s.mg === 'ROMEO' || /ROMEO/.test(s.N)],
+  ['ritchies', 'Ritchies', s => s.mg === 'RITCHIES' || /RITCHIE/.test(s.N)],
+  ['cornetts', 'Cornetts', s => s.mg === 'CORNETTS' || /CORNETT/.test(s.N)],
+  ['foodland', 'Foodland', s => s.b === 'Foodland'],
+  ['foodworks', 'Foodworks', s => s.b === 'Foodworks'],
+  ['lg', 'IGA Local Grocer', s => s.b === 'IGA Local Grocer'],
+]
+const SUM_M = [['ss', 'Sea Salt'], ['msl', 'MSL'], ['all', 'All lines']]
 const WIDE = 1000
 
 const fmt = iso => { const [y, m, d] = iso.split('-'); return `${d}/${m}/${y.slice(2)}` }
@@ -46,6 +57,7 @@ const Icon = ({ name }) => {
     download: <><path d="M12 4v11M7 10l5 5 5-5" /><path d="M4 20h16" /></>,
     x: <path d="M6 6l12 12M18 6L6 18" />,
     back: <path d="M15 5l-7 7 7 7" />,
+    chart: <><path d="M4 20V10M10 20V4M16 20v-7M22 20H2" /></>,
   }
   return <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">{P[name]}</svg>
 }
@@ -71,6 +83,10 @@ export default function Bnb() {
   const [sheet, setSheet] = useState('') // '' | pick | filters
   const [open, setOpen] = useState(null)
   const [worst, setWorst] = useState(true)
+  const [hiddenG, setHiddenG] = useState(() => { try { return JSON.parse(store.get('bnb.hideGroups') || '["romeo","ritchies"]') } catch { return [] } })
+  const [countLap, setCountLap] = useState(() => store.get('bnb.countLap') !== '0')
+  const [sumM, setSumM] = useState('ss')
+  const hk = hiddenG.join(',')
   const width = useWidth()
   const wide = width >= WIDE
 
@@ -85,13 +101,16 @@ export default function Bnb() {
   }, [dark])
   useEffect(() => { store.set('bnb.state', st) }, [st])
   useEffect(() => { store.set('bnb.rep', rep) }, [rep])
+  useEffect(() => { store.set('bnb.hideGroups', JSON.stringify(hiddenG)) }, [hk])
+  useEffect(() => { store.set('bnb.countLap', countLap ? '1' : '0') }, [countLap])
+  const toggleGroup = g => setHiddenG(h => h.includes(g) ? h.filter(x => x !== g) : [...h, g])
 
   const D = useMemo(() => {
     if (!data) return null
     const NB = data.reports.length
     const cols = data.reports.concat(data.ext)
-    const stores = data.stores.map(([id, n, state, b, mso, rk, rp], i) => ({
-      i, id, n, state, b, mso, rk: rk ? +rk : 99999, rep: rp,
+    const stores = data.stores.map(([id, n, state, b, mso, rk, rp, mg], i) => ({
+      i, id, n, N: n.toUpperCase(), state, b, mso, mg: mg || '', rk: rk ? +rk : 99999, rep: rp,
       seen: data.seenS[i], active: data.act ? data.act[i] : (data.seenS[i] >> (NB - 1)) & 1, sun: data.sun[id] || null,
     }))
     const products = data.products.map((p, i) => ({ ...p, i, seen: data.seenP[i] }))
@@ -99,6 +118,7 @@ export default function Bnb() {
     const banners = [...new Set(stores.map(s => s.b).filter(Boolean))].sort()
     const cats = [...new Set(products.map(p => p.rc || p.c).filter(Boolean))].sort()
     const team = new Set(data.team || [])
+    for (const s of stores) s.groups = GROUPS.filter(([, , f]) => f(s)).map(([k]) => k)
     return { NB, cols, stores, products, reps, banners, cats, team }
   }, [data])
 
@@ -115,7 +135,9 @@ export default function Bnb() {
     return { s, p, mask, common, status, lastIdx: highBit(mask), sunLine }
   }
 
-  const storeOk = s => (scope !== 'team' || D.team.has(s.id)) && (st === 'All' || s.state === st) && (!rep || s.rep === rep) && (!banner || s.b === banner) && (!activeOnly || s.active)
+  const baseOk = s => (scope !== 'team' || D.team.has(s.id)) && (!rep || s.rep === rep) && (!banner || s.b === banner) && (!activeOnly || s.active) && !s.groups.some(g => hiddenG.includes(g))
+  const storeOk = s => baseOk(s) && (st === 'All' || s.state === st)
+  const isGap = status => status === 'nev' || (countLap && status === 'lap')
   const prodOk = p => {
     if (p.hide) return false
     if (rg === 'ss' && !p.ss) return false
@@ -131,7 +153,7 @@ export default function Bnb() {
     const qq = q.trim().toLowerCase()
     if (view === 'store') return D.stores.filter(s => storeOk(s) && (!qq || s.n.toLowerCase().includes(qq) || s.id.includes(qq)))
     return D.products.filter(p => prodOk(p) && (!qq || p.n.toLowerCase().includes(qq) || p.r.includes(qq)))
-  }, [D, view, q, scope, st, rep, banner, activeOnly, rg, cat, hideDel])
+  }, [D, view, q, scope, st, rep, banner, activeOnly, hk, countLap, rg, cat, hideDel])
 
   const cur = !D ? null : view === 'prod' ? (sel >= 0 ? D.products[sel] : null) : (sel >= 0 ? D.stores[sel] : pickList[0])
   const ranking = view === 'prod' && !cur
@@ -147,19 +169,39 @@ export default function Bnb() {
       const c = { buy: 0, lap: 0, nev: 0, pp: 0, hold: 0 }
       for (const s of stores) { const l = line(s, p); if (l) c[l.status]++ }
       const t = c.buy + c.lap + c.nev + c.pp + c.hold
-      if (t) out.push({ p, c, t, g: c.lap + c.nev })
+      if (t) out.push({ p, c, t, g: c.nev + (countLap ? c.lap : 0) })
     }
     return out.sort((a, b) => worst ? b.g - a.g || b.c.nev - a.c.nev : a.g - b.g || a.c.nev - b.c.nev)
-  }, [D, view, pickList, worst, scope, st, rep, banner, activeOnly])
-  const storeCount = useMemo(() => (D ? D.stores.filter(storeOk).length : 0), [D, scope, st, rep, banner, activeOnly])
+  }, [D, view, pickList, worst, scope, st, rep, banner, activeOnly, hk, countLap])
+  const storeCount = useMemo(() => (D ? D.stores.filter(storeOk).length : 0), [D, scope, st, rep, banner, activeOnly, hk, countLap])
+
+  // summary: gaps per state for Sea Salt, MSL and all lines (state filter ignored here)
+  const summary = useMemo(() => {
+    if (!D || view !== 'sum') return null
+    const prods = D.products.filter(p => !p.hide && !p.ppk && !(p.del && !p.pp))
+    const by = {}
+    for (const s of D.stores) {
+      if (!baseOk(s)) continue
+      const r = by[s.state] || (by[s.state] = { stores: 0, all: [0, 0], ss: [0, 0], msl: [0, 0] })
+      r.stores++
+      for (const p of prods) {
+        const l = line(s, p)
+        if (!l || !(l.status === 'nev' || l.status === 'lap')) continue
+        const k = l.status === 'nev' ? 0 : 1
+        r.all[k]++; if (p.ss) r.ss[k]++; if (p.msl) r.msl[k]++
+      }
+    }
+    const lines = { all: prods.length, ss: prods.filter(p => p.ss).length, msl: prods.filter(p => p.msl).length }
+    return { by, lines }
+  }, [D, view, scope, rep, banner, activeOnly, hk])
 
   const lines = useMemo(() => {
-    if (!D || !cur) return []
+    if (!D || !cur || view === 'sum') return []
     const out = []
     if (view === 'store') { for (const p of D.products) if (prodOk(p)) { const l = line(cur, p); if (l) out.push(l) } }
     else { for (const s of D.stores) if (storeOk(s)) { const l = line(s, cur); if (l) out.push(l) } }
     return out
-  }, [D, cur, view, scope, st, rep, banner, activeOnly, rg, cat, hideDel])
+  }, [D, cur, view, scope, st, rep, banner, activeOnly, hk, countLap, rg, cat, hideDel])
 
   const shown = useMemo(() => {
     const f = lines.filter(l => flt === 'all' || (flt === 'sun' ? (l.status === 'pp' || l.status === 'hold') : l.status === flt))
@@ -215,6 +257,14 @@ export default function Bnb() {
     : `${cur.r}${cur.rrp ? ` · RRP $${cur.rrp.toFixed(2)} · GM ${cur.gm}%` : ''}${cur.ss ? ' · Sea Salt' : cur.msl ? ' · MSL' : ''}`
 
   const doExport = () => {
+    if (view === 'sum') {
+      if (!summary) return
+      const head = ['State', 'Stores', 'Sea Salt never', 'Sea Salt lapsed', 'MSL never', 'MSL lapsed', 'All never', 'All lapsed']
+      const rows = Object.entries(summary.by).map(([k, r]) => [k, r.stores, r.ss[0], r.ss[1], r.msl[0], r.msl[1], r.all[0], r.all[1]])
+      const hid = GROUPS.filter(([k]) => hiddenG.includes(k)).map(([, t]) => t).join(' ')
+      download(`gaps_summary_${data.built}${hid ? '_excl_' + hid.replace(/[^a-z0-9]+/gi, '_') : ''}.csv`, csv([head, ...rows]))
+      return
+    }
     if (ranking) {
       if (!ranks.length) return
       const head = ['Rank', 'Item no.', 'Product', 'Range', 'Gaps', 'Never', 'Lapsed', 'Buying', 'Sun PP', 'Sun Hold', 'Stores']
@@ -261,8 +311,44 @@ export default function Bnb() {
     </div>
     {ranks.length > limit && <button className="more" onClick={() => setLimit(limit + PAGE)}>Show more ({ranks.length - limit} left)</button>}
     <div className="legend"><span className="sw s-buy" />Buying <span className="sw s-pp" />Sun PP / Hold <span className="sw s-lap" />Lapsed <span className="sw s-nev" />Never
-      {wide && <button onClick={doExport} disabled={!ranks.length}>Export ranking (CSV)</button>}</div>
+</div>
   </>
+
+  const gapsOf = r => r[0] + (countLap ? r[1] : 0)
+  const openState = stt => { setSt(stt); setRg(sumM); setView('prod'); setSel(-1); setQ(''); setFlt('all'); window.scrollTo(0, 0) }
+  const lapSwitch = <button className="lapsw" onClick={() => setCountLap(!countLap)}>
+    <span><b>Count lapsed as gaps</b><small>{countLap ? 'Never + Lapsed' : 'Never only (lapsed lines ignored)'}</small></span>
+    <span className={'tog' + (countLap ? ' on' : '')}><i /></span>
+  </button>
+  const groupChips = <div className="grp">
+    <span className="seg-lbl">Groups</span>
+    {GROUPS.map(([k, t]) => <button key={k} className={hiddenG.includes(k) ? 'off' : 'on'} onClick={() => toggleGroup(k)} title={hiddenG.includes(k) ? 'Hidden: tap to show' : 'Shown: tap to hide'}>{t}</button>)}
+    {hiddenG.length > 0 && <button className="grp-clear" onClick={() => setHiddenG([])}>Show all</button>}
+  </div>
+  const summaryView = summary && (() => {
+    const rows = Object.entries(summary.by).map(([k, r]) => ({ k, r, g: gapsOf(r[sumM]), per: gapsOf(r[sumM]) / r.stores }))
+      .filter(x => x.r.stores).sort((a, b) => b.per - a.per)
+    const tot = m => Object.values(summary.by).reduce((a, r) => a + gapsOf(r[m]), 0)
+    const stores = Object.values(summary.by).reduce((a, r) => a + r.stores, 0)
+    const n = summary.lines[sumM]
+    return <div className="sum">
+      <div className="sum-tiles">
+        {SUM_M.map(([m, t]) => <button key={m} className={'sum-t' + (sumM === m ? ' on' : '')} onClick={() => setSumM(m)}>
+          <b>{tot(m).toLocaleString()}</b><span>{t} gaps</span><span>{stores ? (tot(m) / stores).toFixed(1) : 0} per store</span></button>)}
+      </div>
+      <p className="sum-sub">{stores} stores · {n} {SUM_M.find(x => x[0] === sumM)[1]} lines · {stores && n ? Math.round(100 * tot(sumM) / (n * stores)) : 0}% of possible slots are gaps · tap a state for its products</p>
+      {rows.map(x => {
+        const cap = n * x.r.stores || 1, a = x.r[sumM]
+        return <button key={x.k} className="sum-row" onClick={() => openState(x.k)}>
+          <b className="sum-st">{x.k}</b>
+          <span className="sum-main"><span className="rk-sub">{x.r.stores} stores · {x.per.toFixed(1)} per store · {a[0]} never{countLap ? ` · ${a[1]} lapsed` : ''}</span>
+            <span className="stk"><i className="s-nev" style={{ width: (100 * a[0] / cap).toFixed(1) + '%' }} />{countLap && <i className="s-lap" style={{ width: (100 * a[1] / cap).toFixed(1) + '%' }} />}</span></span>
+          <span className={'rk-g ' + gapCls(x.per * 97 / n)}><b>{x.g.toLocaleString()}</b><small>gaps</small></span>
+        </button>
+      })}
+      {rows.length === 0 && <p className="bnb-msg">No stores match these filters.</p>}
+    </div>
+  })()
 
   const Seg = ({ items, value, onChange, label }) => (
     <div className="seg-row"><span className="seg-lbl">{label}</span>
@@ -271,7 +357,8 @@ export default function Bnb() {
   )
   const filterControls = <>
     <Seg label="Stores" items={[['team', `Your list (${D.team.size})`], ['all', 'All Metcash']]} value={scope} onChange={v => { setScope(v); resetSel() }} />
-    <Seg label="State" items={STATES.map(s => [s, s])} value={st} onChange={v => { setSt(v); resetSel() }} />
+    {groupChips}
+    {view !== 'sum' && <Seg label="State" items={STATES.map(s => [s, s])} value={st} onChange={v => { setSt(v); resetSel() }} />}
     {wide && <Seg label="Range" items={RANGES} value={rg} onChange={setRg} />}
     <div className="ctrls">
       <select value={rep} onChange={e => { setRep(e.target.value); resetSel() }}>
@@ -294,13 +381,16 @@ export default function Bnb() {
       </select>
       <label><input type="checkbox" checked={hideDel} onChange={e => setHideDel(e.target.checked)} /> Hide deleted items</label>
       <label><input type="checkbox" checked={activeOnly} onChange={e => { setActiveOnly(e.target.checked); resetSel() }} /> Current stores only</label>
+      <label><input type="checkbox" checked={countLap} onChange={e => setCountLap(e.target.checked)} /> Count lapsed as gaps</label>
       {wide && <div className="view">
+        <button className={view === 'sum' ? 'on' : ''} onClick={() => switchView('sum')}>Summary</button>
         <button className={view === 'store' ? 'on' : ''} onClick={() => switchView('store')}>By store</button>
         <button className={view === 'prod' ? 'on' : ''} onClick={() => switchView('prod')}>By product</button>
       </div>}
     </div>
   </>
   const foot = <p className="foot">Each dot is a 26 week report: green means the store bought it at least once in the 26 weeks to that date. Lapsed = bought in an earlier report but not the latest. Sun prepack stores get SUN PP on the 6 prepack lines. Range tags from the Beiersdorf Metcash range book (July 2026).{data.notes?.team_missing?.length ? ` Not in any report yet: ${data.notes.team_missing.join(', ')}.` : ''}</p>
+  const exportBtn = <button className="theme" onClick={doExport} aria-label="Export CSV" title="Export CSV"><Icon name="download" /></button>
   const themeBtn = <button className="theme" onClick={() => setDark(!dark)} aria-label={dark ? 'Switch to day mode' : 'Switch to night mode'}><Icon name={dark ? 'sun' : 'moon'} /></button>
 
   /* ---------- PC: table ---------- */
@@ -311,9 +401,10 @@ export default function Bnb() {
           <h1>Beiersdorf buy / not buy history</h1>
           <p>{D.NB} reports, W/E {fmt(data.reports[0])} to {fmt(data.reports[D.NB - 1])}. Sun prepack orders to {fmt(data.built)}.</p>
         </div>
-        <div className="hdr-r">{themeBtn}<a href="/#bnb" className="back">Back to pilot</a></div>
+        <div className="hdr-r">{exportBtn}{themeBtn}<a href="/#bnb" className="back">Back to pilot</a></div>
       </header>
       {filterControls}
+      {view === 'sum' ? summaryView : <>
       <div className="picker">
         <input value={q} onChange={e => { setQ(e.target.value); resetSel() }} placeholder={view === 'store' ? 'Search store name or ID' : 'Search product or item number'} />
         <select value={cur ? cur.i : -1} onChange={e => setSel(+e.target.value)}>
@@ -356,8 +447,8 @@ export default function Bnb() {
       <div className="legend">
         <span className="dot on" />bought <span className="dot" />not bought <span className="dot na" />not in that report
         <span className="dot pp" />sun prepack (that week) <span className="dot hold" />prepack on hold <span className="sep" />weekly after last report
-        <button onClick={doExport} disabled={!shown.length}>Export call list (CSV)</button>
       </div>
+      </>}
       </>}
       {foot}
     </div>
@@ -370,14 +461,15 @@ export default function Bnb() {
         <div className="m-row">
           {view === 'prod' && cur && <button className="theme" onClick={backToRanking} aria-label="All products"><Icon name="back" /></button>}
           <div className="m-ttl">
-            <div className="m-name">{ranking ? 'Gaps by product' : cur ? cur.n : 'No matches'}</div>
-            <div className="m-sub">{ranking ? `${scope === 'team' ? 'Your list' : 'All Metcash'} · ${st === 'All' ? 'All states' : st} · ${storeCount} stores` : curSub}</div>
+            <div className="m-name">{view === 'sum' ? 'Gaps summary' : ranking ? 'Gaps by product' : cur ? cur.n : 'No matches'}</div>
+            <div className="m-sub">{view === 'sum' ? `${scope === 'team' ? 'Your list' : 'All Metcash'} · W/E ${fmt(data.reports[D.NB - 1])}` : ranking ? `${scope === 'team' ? 'Your list' : 'All Metcash'} · ${st === 'All' ? 'All states' : st} · ${storeCount} stores` : curSub}</div>
           </div>
-          {themeBtn}
+          {exportBtn}{themeBtn}
         </div>
-        <button className="m-search" onClick={() => { setQ(''); setSheet('pick') }}><Icon name="search" />{view === 'store' ? 'Change store' : ranking ? 'Find a product' : 'Change product'}</button>
+        {view !== 'sum' && <button className="m-search" onClick={() => { setQ(''); setSheet('pick') }}><Icon name="search" />{view === 'store' ? 'Change store' : ranking ? 'Find a product' : 'Change product'}</button>}
       </header>
 
+      {view === 'sum' ? <div className="m-sum">{groupChips}{lapSwitch}{summaryView}</div> : <>
       <div className="chips">
         {CHIPS.map(([v, t]) => <button key={v} className={'chip' + (rg === v ? ' on' : '')} onClick={() => setRg(v)}>{t}</button>)}
         <button className={'chip' + (hideDel ? ' on' : '')} onClick={() => setHideDel(!hideDel)}>Hide deleted</button>
@@ -418,13 +510,14 @@ export default function Bnb() {
       </div>
       {shown.length > limit && <button className="more m-more" onClick={() => setLimit(limit + PAGE)}>Show more ({shown.length - limit} left)</button>}
       </>}
+      </>}
       <div className="m-pad">{foot}<a href="/#bnb" className="m-back">Back to pilot</a></div>
 
       <nav className="tabs">
+        <button className={view === 'sum' ? 'on' : ''} onClick={() => switchView('sum')}><Icon name="chart" />Summary</button>
         <button className={view === 'store' ? 'on' : ''} onClick={() => view === 'store' ? setSheet('pick') : switchView('store')}><Icon name="store" />Store</button>
         <button className={view === 'prod' ? 'on' : ''} onClick={() => view === 'prod' ? backToRanking() : switchView('prod')}><Icon name="box" />Product</button>
         <button className={sheet === 'filters' ? 'on' : ''} onClick={() => setSheet('filters')}><Icon name="sliders" />Filters</button>
-        <button onClick={doExport}><Icon name="download" />Export</button>
       </nav>
 
       {sheet && <div className="scrim" onClick={e => e.target === e.currentTarget && setSheet('')}>

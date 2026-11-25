@@ -1,7 +1,7 @@
 """Build bnb.json for the /bnb dashboard.
 usage: python3 -I build_bnb.py <bnb_dir> <orders.xlsx> <out.json> <beiersdorf_june.xlsx>
 """
-import sys, glob, json, re, datetime as dt
+import sys, glob, json, re, os, datetime as dt
 sys.path.insert(0, __import__('os').path.dirname(__file__))
 from pyxlsb import open_workbook
 import openpyxl
@@ -111,6 +111,21 @@ for row in onepager.rows():
     p = prod_list[i]
     p.update(ss=row['ss'], msl=row['msl'], rank=row['rank'], rc=row['cat'], rrp=row['rrp'], gm=row['gm'], g=row['grade'])
 # lines removed from the dashboard on request (still kept in the data so history lines up)
+# MSO group per store (mso_groups.tsv: store name, MSO, state), matched by name
+MSO_PATH = os.path.join(os.path.dirname(__file__), 'mso_groups.tsv')
+msomap = {}
+if os.path.exists(MSO_PATH):
+    for ln in open(MSO_PATH):
+        nm, grp, *_ = ln.rstrip('\n').split('\t')
+        msomap[re.sub(r'[^A-Z0-9]', '', nm.upper())] = grp.strip()
+def mso_of(name):
+    g = msomap.get(re.sub(r'[^A-Z0-9]', '', name.upper()))
+    if g and g != '-': return g
+    u = name.upper()
+    if 'ROMEO' in u: return 'ROMEO'
+    if 'RITCHIE' in u: return 'RITCHIES'
+    return g or ''
+
 EXCLUDE = {'560241', '363092',
            '215676', '215710', '215590', '215817', '215697', '215833',  # Derma Control range: deleted
            '922037', '326359',            # Sun sprays 300ml: deleted
@@ -210,7 +225,7 @@ out = dict(
     reports=[d.isoformat() for d in dates],
     ext=[d.isoformat() for d in ext],
     products=[{k: v for k, v in p.items() if k not in ('last',) and v not in (None, False, '')} | ({'del': True} if p['del_'] else {}) for p in prod_list],
-    stores=[[s['id'], s['n'], s['st'], s['b'], s['mso'], s['rk'], reps.get(s['id'], '')] for s in store_list],
+    stores=[[s['id'], s['n'], s['st'], s['b'], s['mso'], s['rk'], reps.get(s['id'], ''), mso_of(s['n'])] for s in store_list],
     seenS=seenS, seenP=seenP,
     act=[1 if (m >> (len(dates) - 1)) & 1 or (m >> (len(dates) - 2)) & 1 else 0 for m in seenS],
     h=H,
