@@ -196,7 +196,7 @@ export default function Bnb() {
   // store ranking: gaps per store across the selected range, most gaps first
   const sRanks = useMemo(() => {
     if (!D || view !== 'store' || cur) return []
-    const prods = D.products.filter(p => prodOk(p) && !p.ppk && (((p.seen >> (D.NB - 1)) & 1) || ((p.seen >> (D.NB - 2)) & 1)))
+    const prods = D.products.filter(prodOk) // same lines as the store page, so the counts match
     const out = []
     for (const s of pickList) {
       const c = { buy: 0, lap: 0, nev: 0, pp: 0, hold: 0 }; let ss = 0, msl = 0
@@ -238,7 +238,7 @@ export default function Bnb() {
   }, [D, cur, view, scope, st, rep, banner, activeOnly, hk, area, countLap, rg, cat, hideDel])
 
   const shown = useMemo(() => {
-    const f = lines.filter(l => flt === 'all' || (flt === 'sun' ? (l.status === 'pp' || l.status === 'hold') : l.status === flt))
+    const f = lines.filter(l => flt === 'all' || (flt === 'gap' ? isGap(l.status) : false) || flt !== 'gap' && ((flt === 'sun' ? (l.status === 'pp' || l.status === 'hold') : l.status === flt)))
     const name = l => view === 'store' ? l.p.n : l.s.n
     const num = l => +(view === 'store' ? l.p.r : l.s.id)
     const pri = l => (l.p.ss ? 0 : l.p.msl ? 1 : 2)
@@ -251,7 +251,7 @@ export default function Bnb() {
         : (a, b) => STATUS_ORDER[a.status] - STATUS_ORDER[b.status] || a.s.rk - b.s.rk,
     }[sort]
     return f.sort(cmp)
-  }, [lines, flt, sort, view])
+  }, [lines, flt, sort, view, countLap])
 
   useEffect(() => { setLimit(PAGE); setOpen(null) }, [cur, flt, sort, view, worst])
 
@@ -339,7 +339,7 @@ export default function Bnb() {
       {sRanks.slice(0, limit).map((x, i) => {
         const w = v => (100 * v / x.t).toFixed(1) + '%'
         return (
-          <button key={x.s.i} className="rk-row" onClick={() => { setSel(x.s.i); setFlt('all'); window.scrollTo(0, 0) }}>
+          <button key={x.s.i} className="rk-row" onClick={() => { setSel(x.s.i); setFlt('gap'); window.scrollTo(0, 0) }}>
             <span className="rk-n">{i + 1}</span>
             <span className="rk-main">
               <span className="rk-nm">{x.s.n}</span>
@@ -498,7 +498,7 @@ export default function Bnb() {
 
       {ranking ? (view === 'store' ? storeRankList : rankList) : <>
       <div className="kpis">
-        {[['all', 'All lines', lines.length, ''], ['nev', 'Never', c('nev'), 'r'], ['lap', 'Lapsed', c('lap'), 'a'], ['buy', 'Buying', c('buy'), 'g'], ['sun', 'Sun PP / Hold', `${c('pp')} / ${c('hold')}`, 'b']]
+        {[['all', 'All lines', lines.length, ''], ['gap', 'Gaps', lines.filter(l => isGap(l.status)).length, 'r'], ['nev', 'Never', c('nev'), 'r'], ['lap', 'Lapsed', c('lap'), 'a'], ['buy', 'Buying', c('buy'), 'g'], ['sun', 'Sun PP / Hold', `${c('pp')} / ${c('hold')}`, 'b']]
           .map(([k, t, v, cl]) => <button key={k} className={'kpi ' + cl + (flt === k ? ' on' : '')} onClick={() => setFlt(k)}><span>{t}</span><b>{v}</b></button>)}
       </div>
 
@@ -559,7 +559,7 @@ export default function Bnb() {
         {[['nev', 'Never', c('nev')], ['lap', 'Lapsed', c('lap')], ['buy', 'Buying', c('buy')], ['sun', 'Sun PP', c('hold') ? `${c('pp')}/${c('hold')}` : c('pp')]]
           .map(([k, t, v]) => <button key={k} className={'m-kpi k-' + k + (flt === k ? ' on' : '')} onClick={() => setFlt(flt === k ? 'all' : k)}><b>{v}</b><span>{t}</span></button>)}
       </div>
-      <div className="m-count">{flt === 'all' ? `${shown.length} lines` : `${shown.length} ${LABEL[flt === 'sun' ? 'pp' : flt].toLowerCase()} · tap again to clear`}</div>
+      <div className="m-count">{flt === 'all' ? `${shown.length} lines` : flt === 'gap' ? <>{shown.length} gaps{countLap ? ' (never + lapsed)' : ' (never)'} · <button className="lnk" onClick={() => setFlt('all')}>show all lines</button></> : `${shown.length} ${LABEL[flt === 'sun' ? 'pp' : flt].toLowerCase()} · tap again to clear`}</div>
 
       <div className="cards">
         {shown.slice(0, limit).map(l => {
