@@ -382,7 +382,7 @@ export default function Bnb() {
   </>
 
   const gapsOf = r => r[0] + (countLap ? r[1] : 0)
-  const openState = stt => { setSt(stt); setRg(sumM); setView('prod'); setSel(-1); setQ(''); setFlt('all'); window.scrollTo(0, 0) }
+  const openState = stt => { setSt(stt); setRg(sumM); setView('store'); setSel(-1); setQ(''); setFlt('all'); window.scrollTo(0, 0) }
   const lapSwitch = <button className="lapsw" onClick={() => setCountLap(!countLap)}>
     <span><b>Count lapsed as gaps</b><small>{countLap ? 'Never + Lapsed' : 'Never only (lapsed lines ignored)'}</small></span>
     <span className={'tog' + (countLap ? ' on' : '')}><i /></span>
@@ -416,7 +416,7 @@ export default function Bnb() {
         {SUM_M.map(([m, t]) => <button key={m} className={'sum-t' + (sumM === m ? ' on' : '')} onClick={() => setSumM(m)}>
           <b>{tot(m).toLocaleString()}</b><span>{t} gaps</span><span>{stores ? (tot(m) / stores).toFixed(1) : 0} per store</span></button>)}
       </div>
-      <p className="sum-sub">{stores} stores · {n} {SUM_M.find(x => x[0] === sumM)[1]} lines · {stores && n ? Math.round(100 * tot(sumM) / (n * stores)) : 0}% of possible slots are gaps · tap a state for its products</p>
+      <p className="sum-sub">{stores} stores · {n} {SUM_M.find(x => x[0] === sumM)[1]} lines · {stores && n ? Math.round(100 * tot(sumM) / (n * stores)) : 0}% of possible slots are gaps · tap a state for its stores</p>
       {rows.map(x => {
         const cap = n * x.r.stores || 1, a = x.r[sumM]
         return <button key={x.k} className="sum-row" onClick={() => openState(x.k)}>
