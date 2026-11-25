@@ -383,9 +383,9 @@ export default function Bnb() {
       <label><input type="checkbox" checked={activeOnly} onChange={e => { setActiveOnly(e.target.checked); resetSel() }} /> Current stores only</label>
       <label><input type="checkbox" checked={countLap} onChange={e => setCountLap(e.target.checked)} /> Count lapsed as gaps</label>
       {wide && <div className="view">
-        <button className={view === 'sum' ? 'on' : ''} onClick={() => switchView('sum')}>Summary</button>
         <button className={view === 'store' ? 'on' : ''} onClick={() => switchView('store')}>By store</button>
         <button className={view === 'prod' ? 'on' : ''} onClick={() => switchView('prod')}>By product</button>
+        <button className={view === 'sum' ? 'on' : ''} onClick={() => switchView('sum')}>Summary</button>
       </div>}
     </div>
   </>
@@ -514,10 +514,10 @@ export default function Bnb() {
       <div className="m-pad">{foot}<a href="/#bnb" className="m-back">Back to pilot</a></div>
 
       <nav className="tabs">
-        <button className={view === 'sum' ? 'on' : ''} onClick={() => switchView('sum')}><Icon name="chart" />Summary</button>
         <button className={view === 'store' ? 'on' : ''} onClick={() => view === 'store' ? setSheet('pick') : switchView('store')}><Icon name="store" />Store</button>
         <button className={view === 'prod' ? 'on' : ''} onClick={() => view === 'prod' ? backToRanking() : switchView('prod')}><Icon name="box" />Product</button>
         <button className={sheet === 'filters' ? 'on' : ''} onClick={() => setSheet('filters')}><Icon name="sliders" />Filters</button>
+        <button className={view === 'sum' ? 'on' : ''} onClick={() => switchView('sum')}><Icon name="chart" />Summary</button>
       </nav>
 
       {sheet && <div className="scrim" onClick={e => e.target === e.currentTarget && setSheet('')}>
