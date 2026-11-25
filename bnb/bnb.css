@@ -172,3 +172,28 @@ input[type=checkbox] { accent-color: var(--acc); width: 16px; height: 16px; }
 .m-top .m-row .theme:first-child { margin-right: 2px; }
 @media (min-width: 640px) { .m-rank { padding: 0 16px; } }
 @media (min-width: 1000px) { .rk-list { grid-template-columns: 1fr 1fr; } }
+
+/* ---------- summary, groups, lapsed switch ---------- */
+.grp { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; margin-bottom: 8px; }
+.grp button { border-radius: 16px; padding: 6px 12px; font-size: 13px; cursor: pointer; border: 1px solid var(--acc); background: var(--acc); color: var(--on-acc); font-weight: 600; }
+.grp button.off { background: transparent; color: var(--muted); border-color: var(--line); text-decoration: line-through; font-weight: 400; }
+.grp .grp-clear { background: transparent; color: var(--acc); font-weight: 400; }
+.lapsw { display: flex; width: 100%; align-items: center; justify-content: space-between; gap: 10px; margin: 6px 0 10px; padding: 10px 12px; border-radius: 12px; background: var(--surface); border: 1px solid var(--line); cursor: pointer; text-align: left; }
+.lapsw b { display: block; font-size: 14px; font-weight: 500; }
+.lapsw small { display: block; font-size: 12px; color: var(--muted); }
+.tog { width: 44px; height: 26px; border-radius: 13px; background: var(--dot); position: relative; flex: none; }
+.tog i { position: absolute; top: 3px; left: 3px; width: 20px; height: 20px; border-radius: 50%; background: #fff; transition: left .15s; }
+.tog.on { background: var(--acc); } .tog.on i { left: 21px; }
+.sum-tiles { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; margin: 4px 0 6px; }
+.sum-t { background: var(--surface); border: 1.5px solid var(--line); border-radius: 12px; padding: 10px 6px; text-align: center; cursor: pointer; }
+.sum-t.on { border-color: var(--acc); }
+.sum-t b { display: block; font-size: 22px; font-weight: 600; }
+.sum-t span { display: block; font-size: 12px; color: var(--muted); }
+.sum-sub { font-size: 12px; color: var(--muted); margin: 4px 0 10px; }
+.sum-row { display: grid; grid-template-columns: 44px minmax(0, 1fr) 70px; gap: 10px; align-items: center; width: 100%; text-align: left; background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: 11px 12px; margin-bottom: 7px; cursor: pointer; }
+.sum-row:hover { border-color: var(--acc); }
+.sum-st { font-size: 16px; }
+.sum-main { display: block; min-width: 0; }
+.m-sum { padding: 10px 12px 0; }
+@media (min-width: 640px) { .m-sum { padding: 10px 16px 0; } }
+@media (min-width: 1000px) { .sum { max-width: 760px; } }
