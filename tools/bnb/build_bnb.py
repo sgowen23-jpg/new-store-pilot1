@@ -112,7 +112,11 @@ for row in onepager.rows():
     p.update(ss=row['ss'], msl=row['msl'], rank=row['rank'], rc=row['cat'], rrp=row['rrp'], gm=row['gm'], g=row['grade'])
 # lines removed from the dashboard on request (still kept in the data so history lines up)
 EXCLUDE = {'560241', '363092',
-           '215676', '215710', '215590', '215817', '215697', '215833'}  # Derma Control range: deleted
+           '215676', '215710', '215590', '215817', '215697', '215833',  # Derma Control range: deleted
+           '922037', '326359',            # Sun sprays 300ml: deleted
+           '435700', '718551',            # Men Shave Gel Moist 200ml, Sun Pro Sensitive 100ml: deleted
+           '303217', '465331', '356969'}  # older deletions still in report history
+# kept on purpose: 700464 NIVEA SUN 2025 (last season's tower, useful for reference)
 for p in prod_list:
     if p['r'] in EXCLUDE: p['hide'] = True
 print('range book matched', matched, 'unmatched', len(unmatched))
