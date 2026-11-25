@@ -111,7 +111,8 @@ for row in onepager.rows():
     p = prod_list[i]
     p.update(ss=row['ss'], msl=row['msl'], rank=row['rank'], rc=row['cat'], rrp=row['rrp'], gm=row['gm'], g=row['grade'])
 # lines removed from the dashboard on request (still kept in the data so history lines up)
-EXCLUDE = {'560241', '363092', '215676'}
+EXCLUDE = {'560241', '363092',
+           '215676', '215710', '215590', '215817', '215697', '215833'}  # Derma Control range: deleted
 for p in prod_list:
     if p['r'] in EXCLUDE: p['hide'] = True
 print('range book matched', matched, 'unmatched', len(unmatched))
